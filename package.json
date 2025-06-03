@@ -5,6 +5,10 @@
     "frontend",
     "backend"
   ],
+  "scripts": {
+    "build": "cd frontend && npm install --production=false && npm run build",
+    "dev": "cd frontend && npm run dev"
+  },
   "devDependencies": {
     "@vitejs/plugin-react-swc": "^3.10.0"
   },
