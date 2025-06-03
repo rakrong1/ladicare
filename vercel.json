@@ -1,6 +1,7 @@
 {
   "build": {
     "cwd": "frontend",
+    "outputDirectory": "dist",
     "env": {
       "NODE_ENV": "production"
     }
