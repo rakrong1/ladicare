@@ -1,9 +1,10 @@
 // src/api.js
+const API_URL = import.meta.env.VITE_API_URL || "";
 const BASE_URL = "http://localhost:5000/api"; // adjust path based on your backend routes
 
 export const fetchProducts = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/products`);
+    const response = await fetch(`${API_URL}/api/products`);
     if (!response.ok) {
       throw new Error("Failed to fetch products");
     }
@@ -16,7 +17,7 @@ export const fetchProducts = async () => {
 
 export const createProduct = async (product) => {
   try {
-    const response = await fetch(`${BASE_URL}/products`, {
+    const response = await fetch(`${BASE_URL}/api/products`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
