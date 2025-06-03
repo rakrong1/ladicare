@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node node_modules/vite/bin/vite.js build",
-    "preview": "vite preview"
+    "build": "vite build",
+    "preview": "vite preview",
+    "prebuild": "chmod +x node_modules/.bin/vite"
   },
   "dependencies": {
     "react": "^18.3.1",

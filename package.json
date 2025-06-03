@@ -6,7 +6,7 @@
     "backend"
   ],
   "scripts": {
-    "build": "cd frontend && npm install --unsafe-perm && npm run build",
+    "build": "cd frontend && npm install --production=false && npm run build",
     "dev": "cd frontend && npm run dev"
   },
   "devDependencies": {
