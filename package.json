@@ -6,15 +6,7 @@
     "backend"
   ],
   "scripts": {
-    "build": "cd frontend && npm install && npm rebuild && npm run build",
+    "build": "cd frontend && npm install --force && npm run build",
     "dev": "cd frontend && npm run dev"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react-swc": "^3.10.0"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.2", 
-    "framer-motion": "^12.15.0",
-    "react-icons": "^5.5.0"
   }
 }
