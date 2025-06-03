@@ -1,12 +1,50 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";  // Changed from plugin-react-swc
+import react from "@vitejs/plugin-react";
+import { visualizer as bundleAnalyzer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
-  plugins: [react()],
+  optimizeDeps: {
+    include: [
+      "react-icons/fa",
+      "react-router-dom",
+      "framer-motion"
+    ],
+    exclude: ["react-icons"]
+  },
+  plugins: [
+    react({
+      jsxRuntime: 'automatic'
+    }),
+    bundleAnalyzer({
+      analyzerMode: 'static',
+      openAnalyzer: false
+    })
+  ],
   server: {
     proxy: {
-      "/api": "http://localhost:5000",
-      "/uploads": "http://localhost:5000"
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true
+      },
+      "/uploads": {
+        target: "http://localhost:5000",
+        changeOrigin: true
+      }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          icons: ["react-icons"],
+          vendor: ["react-router-dom", "framer-motion"]
+        }
+      }
+    },
+    minify: "esbuild",
+    target: "esnext",
+    chunkSizeWarningLimit: 1000,
+    cssCodeSplit: true
   }
 });
