@@ -8,5 +8,8 @@
   "scripts": {
     "build": "cd frontend && npm install --unsafe-perm && npm run build",
     "dev": "cd frontend && npm run dev"
+  },
+  "dependencies": {
+    "vite": "^6.3.5"
   }
 }
