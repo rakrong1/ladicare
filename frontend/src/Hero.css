@@ -128,3 +128,41 @@
     font-size: 2rem;
   }
 }
+
+/* Main image container (unchanged) */
+.hero__main-image {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Original image styling (unchanged) */
+.hero__main-img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.9);
+}
+
+/* New video styling (mobile only) */
+.hero__main-vid {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.9);
+}
+
+@media (max-width: 768px) {
+  .hero__main-img {
+    display: none; /* Hide image on mobile */
+  }
+  .hero__main-vid {
+    display: block; /* Show video on mobile */
+  }
+  
+  /* Everything else in your existing mobile media query remains UNCHANGED */
+}
