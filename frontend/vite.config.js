@@ -1,36 +1,32 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { visualizer as bundleAnalyzer } from 'rollup-plugin-visualizer';
+import { visualizer as bundleAnalyzer } from "rollup-plugin-visualizer";
 
 export default defineConfig({
   optimizeDeps: {
-    include: [
-      "react-icons/fa",
-      "react-router-dom",
-      "framer-motion"
-    ],
-    exclude: ["react-icons"]
+    include: ["react-icons", "react-router-dom", "framer-motion"],
+    
   },
   plugins: [
     react({
-      jsxRuntime: 'automatic'
+      jsxRuntime: "automatic",
     }),
     bundleAnalyzer({
-      analyzerMode: 'static',
-      openAnalyzer: false
-    })
+      analyzerMode: "static",
+      openAnalyzer: false,
+    }),
   ],
   server: {
     proxy: {
       "/api": {
         target: "http://localhost:5000",
-        changeOrigin: true
+        changeOrigin: true,
       },
       "/uploads": {
         target: "http://localhost:5000",
-        changeOrigin: true
-      }
-    }
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     rollupOptions: {
@@ -38,13 +34,13 @@ export default defineConfig({
         manualChunks: {
           react: ["react", "react-dom"],
           icons: ["react-icons"],
-          vendor: ["react-router-dom", "framer-motion"]
-        }
-      }
+          vendor: ["react-router-dom", "framer-motion"],
+        },
+      },
     },
     minify: "esbuild",
     target: "esnext",
     chunkSizeWarningLimit: 1000,
-    cssCodeSplit: true
-  }
+    cssCodeSplit: true,
+  },
 });
