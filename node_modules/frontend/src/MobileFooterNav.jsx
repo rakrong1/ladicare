@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { FaHome, FaUser, FaShoppingCart, FaCog } from "react-icons/fa";
+import { FaHome, FaUser, FaShoppingCart, FaCog } from 'react-icons/fa';
 import { motion } from "framer-motion";
 import "./MobileFooterNav.css";
 
