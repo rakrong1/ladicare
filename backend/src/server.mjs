@@ -1,6 +1,7 @@
 import express from 'express';
 import footerRoutes from '../routes/footerRoutes.js';
 import contactRoutes from '../routes/contactRoutes.js';
+import {paystackRoutes} from '../routes/paymentRoutes.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -72,6 +73,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/footer', footerRoutes); // <-- mount here
 app.use('/api/contact', contactRoutes);
+app.use('/api', paystackRoutes);
 
 // Default route
 app.get('/', (req, res) => {
