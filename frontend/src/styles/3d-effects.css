@@ -1,0 +1,225 @@
+/* 3D Effects and Transformations */
+
+/* 3D Card Effects */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+  perspective: 1000px;
+}
+
+.card-3d:hover {
+  transform: rotateY(5deg) rotateX(5deg);
+}
+
+.card-3d-strong {
+  transform-style: preserve-3d;
+  transition: transform 0.4s ease;
+  perspective: 1000px;
+}
+
+.card-3d-strong:hover {
+  transform: rotateY(10deg) rotateX(10deg) translateZ(20px);
+}
+
+/* Product card tilt effect */
+.product-card-tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+
+.product-card-tilt:hover {
+  transform: perspective(1000px) rotateX(5deg) rotateY(5deg) translateZ(10px);
+}
+
+/* Button 3D effects */
+.button-3d {
+  transform-style: preserve-3d;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.button-3d:hover {
+  transform: translateY(-3px) translateZ(10px);
+}
+
+.button-3d:active {
+  transform: translateY(-1px) translateZ(5px);
+}
+
+.button-3d::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.1));
+  border-radius: inherit;
+  transform: translateZ(-1px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.button-3d:hover::before {
+  opacity: 1;
+}
+
+/* Parallax containers */
+.parallax-container {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.parallax-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.parallax-back {
+  transform: translateZ(-100px) scale(1.1);
+}
+
+.parallax-mid {
+  transform: translateZ(-50px) scale(1.05);
+}
+
+.parallax-front {
+  transform: translateZ(0);
+}
+
+/* Image depth effects */
+.image-3d {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+}
+
+.image-3d::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: -10px;
+  bottom: -10px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3));
+  border-radius: inherit;
+  transform: translateZ(-10px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.image-3d:hover::before {
+  opacity: 1;
+}
+
+.image-3d:hover {
+  transform: translateZ(10px);
+}
+
+/* Navigation 3D effects */
+.nav-3d {
+  transform-style: preserve-3d;
+}
+
+.nav-item-3d {
+  transition: transform 0.3s ease;
+  position: relative;
+}
+
+.nav-item-3d:hover {
+  transform: translateZ(5px);
+}
+
+.nav-item-3d::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8));
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.nav-item-3d:hover::after {
+  transform: scaleX(1);
+}
+
+/* Modal 3D entrance */
+.modal-3d {
+  transform: perspective(1000px) rotateX(-90deg);
+  opacity: 0;
+  transition: all 0.4s ease;
+}
+
+.modal-3d.active {
+  transform: perspective(1000px) rotateX(0deg);
+  opacity: 1;
+}
+
+/* Card stack effect */
+.card-stack {
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.card-stack::before,
+.card-stack::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: -4px;
+  bottom: -4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-stack::before {
+  transform: translateZ(-5px);
+}
+
+.card-stack::after {
+  transform: translateZ(-10px);
+  top: 8px;
+  left: 8px;
+  right: -8px;
+  bottom: -8px;
+}
+
+/* Isometric effects */
+.isometric {
+  transform: rotateX(30deg) rotateY(-30deg);
+  transform-style: preserve-3d;
+}
+
+.isometric-hover {
+  transition: transform 0.3s ease;
+}
+
+.isometric-hover:hover {
+  transform: rotateX(30deg) rotateY(-30deg) translateZ(20px);
+}
+
+/* Depth shadows */
+.depth-shadow {
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+.depth-shadow-strong {
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.25),
+    0 8px 16px rgba(0, 0, 0, 0.15),
+    0 16px 32px rgba(0, 0, 0, 0.1);
+}
