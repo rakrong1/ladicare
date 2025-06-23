@@ -22,13 +22,14 @@ const sequelize = new Sequelize(
   }
 );
 
+// CATEGORY MODEL
 const Category = sequelize.define('Category', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
     unique: true,
-    validate: { notEmpty: true, len: [2, 100] }
+    validate: { notEmpty: true, len: [2, 100] },
   },
   description: { type: DataTypes.TEXT, allowNull: true },
   slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
@@ -38,101 +39,64 @@ const Category = sequelize.define('Category', {
   timestamps: true,
   underscored: true,
   hooks: {
-    beforeCreate: (category) => {
-      category.slug = category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    beforeValidate: (category) => {
+      if (!category.slug && category.name) {
+        category.slug = category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      }
     },
     beforeUpdate: (category) => {
       if (category.changed('name')) {
         category.slug = category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
       }
     },
-  }
+  },
 });
 
+// PRODUCT MODEL
 const Product = sequelize.define('Product', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING(200), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: false },
-  price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  original_price: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+  price: { type: DataTypes.FLOAT, allowNull: false },
+  original_price: { type: DataTypes.FLOAT, allowNull: true },
   category_id: { type: DataTypes.INTEGER, allowNull: false },
   sku: { type: DataTypes.STRING(50), allowNull: true, unique: true },
-  images: { type: DataTypes.JSONB, allowNull: true, defaultValue: [] },
-  videos: { type: DataTypes.JSONB, allowNull: true, defaultValue: [] },
+  images: { type: DataTypes.JSONB, defaultValue: [] },
+  videos: { type: DataTypes.JSONB, defaultValue: [] },
   status: { type: DataTypes.ENUM('pending', 'approved', 'rejected'), defaultValue: 'pending' },
-  rejection_reason: { type: DataTypes.TEXT, allowNull: true },
+  rejection_reason: { type: DataTypes.TEXT },
   stock_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   is_featured: { type: DataTypes.BOOLEAN, defaultValue: false },
   weight: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
   dimensions: { type: DataTypes.JSONB, allowNull: true },
-  tags: { type: DataTypes.JSONB, allowNull: true, defaultValue: [] },
+  tags: { type: DataTypes.JSONB, defaultValue: [] },
   meta_title: { type: DataTypes.STRING(160), allowNull: true },
   meta_description: { type: DataTypes.STRING(320), allowNull: true },
   slug: { type: DataTypes.STRING(250), allowNull: false, unique: true },
+  vendorId: { type: DataTypes.STRING, allowNull: false },
+  thumbnail: { type: DataTypes.STRING, allowNull: false },
+  earnings: { type: DataTypes.FLOAT, defaultValue: 0 },
 }, {
   tableName: 'products',
   timestamps: true,
   underscored: true,
   hooks: {
-    beforeCreate: (product) => {
+    beforeValidate: (product) => {
+      if (!product.slug && product.name) {
+        product.slug = product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      }
       if (!product.sku) {
         const timestamp = Date.now().toString();
         const random = Math.random().toString(36).substring(2, 8).toUpperCase();
         product.sku = `LC-${timestamp.slice(-6)}-${random}`;
       }
-      product.slug = product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     },
     beforeUpdate: (product) => {
       if (product.changed('name')) {
         product.slug = product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
       }
-    }
-  }
-});
-
-const CartItem = sequelize.define('CartItem', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  session_id: { type: DataTypes.STRING, allowNull: true },
-  customer_id: { type: DataTypes.INTEGER, allowNull: true },
-  product_id: { type: DataTypes.INTEGER, allowNull: false },
-  variant_id: { type: DataTypes.INTEGER, allowNull: true },
-  quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
-  price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-}, {
-  tableName: 'cart_items',
-  timestamps: true,
-  underscored: true,
-});
-
-const Order = sequelize.define('Order', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  order_number: { type: DataTypes.STRING(50), allowNull: false, unique: true },
-  customer_info: { type: DataTypes.JSONB, allowNull: false },
-  products: { type: DataTypes.JSONB, allowNull: false },
-  subtotal: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  tax_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-  shipping_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-  discount_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-  total_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  status: { type: DataTypes.ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'), defaultValue: 'pending' },
-  payment_status: { type: DataTypes.ENUM('pending', 'paid', 'failed', 'refunded'), defaultValue: 'pending' },
-  payment_method: { type: DataTypes.STRING(50), allowNull: true },
-  payment_reference: { type: DataTypes.STRING(100), allowNull: true },
-  shipping_info: { type: DataTypes.JSONB, allowNull: true },
-  notes: { type: DataTypes.TEXT, allowNull: true },
-}, {
-  tableName: 'orders',
-  timestamps: true,
-  underscored: true,
-  hooks: {
-    beforeCreate: (order) => {
-      if (!order.order_number) {
-        const timestamp = Date.now().toString();
-        const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-        order.order_number = `ORD-${timestamp.slice(-8)}-${random}`;
-      }
-    }
-  }
+    },
+  },
 });
 
 const AdminLog = sequelize.define('AdminLog', {
@@ -149,6 +113,28 @@ const AdminLog = sequelize.define('AdminLog', {
   underscored: true,
 });
 
+const Order = sequelize.define('Order', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  order_number: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+  customer_info: { type: DataTypes.JSONB, allowNull: false },
+  products: { type: DataTypes.JSONB, allowNull: false },
+  subtotal: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+  // ... other fields
+}, {
+  tableName: 'orders',
+  timestamps: true,
+  underscored: true,
+  hooks: {
+    beforeCreate: (order) => {
+      if (!order.order_number) {
+        const timestamp = Date.now().toString();
+        const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+        order.order_number = `ORD-${timestamp.slice(-8)}-${random}`;
+      }
+    }
+  }
+});
+
 const ProductVariant = sequelize.define('ProductVariant', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   product_id: { type: DataTypes.INTEGER, allowNull: false },
@@ -163,6 +149,12 @@ const ProductVariant = sequelize.define('ProductVariant', {
   underscored: true,
 });
 
+ProductVariant.belongsTo(Product, { foreignKey: 'product_id' });
+Product.hasMany(ProductVariant, { foreignKey: 'product_id', as: 'variants' });
+
+// then export it:
+export { ProductVariant }; // or add it to the main export block
+
 const Review = sequelize.define('Review', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   product_id: { type: DataTypes.INTEGER, allowNull: false },
@@ -175,46 +167,32 @@ const Review = sequelize.define('Review', {
   underscored: true,
 });
 
+// relations
+Review.belongsTo(Product, { foreignKey: 'product_id' });
+Product.hasMany(Review, { foreignKey: 'product_id', as: 'reviews' });
+
+
+// ASSOCIATIONS
 Product.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 Category.hasMany(Product, { foreignKey: 'category_id', as: 'products' });
 
-CartItem.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
-Product.hasMany(CartItem, { foreignKey: 'product_id' });
+const connectDatabase = async () => {
+  await sequelize.authenticate();
+  console.log('Database connected ✅');
+};
 
-Product.hasMany(ProductVariant, { foreignKey: 'product_id', as: 'variants' });
-ProductVariant.belongsTo(Product, { foreignKey: 'product_id' });
-
-Product.hasMany(Review, { foreignKey: 'product_id', as: 'reviews' });
-Review.belongsTo(Product, { foreignKey: 'product_id' });
-
-const connectDatabase = async () => { await sequelize.authenticate(); };
-const seedInitialData = async () => { await Category.count(); };
-const initializeDatabase = async () => { await connectDatabase(); await seedInitialData(); };
+const initializeDatabase = async () => {
+  await connectDatabase();
+  await sequelize.sync();
+};
 
 export {
   sequelize,
   Product,
   Category,
-  Order,
-  AdminLog,
-  CartItem,
-  ProductVariant,
-  Review,
   connectDatabase,
-  seedInitialData,
   initializeDatabase,
-};
-
-export default {
-  sequelize,
-  Product,
-  Category,
-  Order,
   AdminLog,
-  CartItem,
-  ProductVariant,
+  Order,
   Review,
-  connectDatabase,
-  seedInitialData,
-  initializeDatabase,
 };

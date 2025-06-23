@@ -1,12 +1,23 @@
-// backend/src/routes/productRoutes.js
+/* eslint-disable no-multi-spaces */
+// backend/routes/productRoutes.js
+import express from 'express';
+import multer from 'multer';
+import {
+  getProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from '../controllers/productController.js';
 
-import { Router } from 'express';
-import { getProductById } from '../controllers/productController.js'; // ✅ corrected path
+const router = express.Router();
+const upload = multer({ dest: 'uploads/' });
 
-const router = Router();
-
-// Get product by ID (or slug if changed later)
-router.get('/id/:id', getProductById);
-// router.get('/slug/:slug', getProductBySlug);
+// These paths are relative to /api/products
+router.get('/', getProducts);                         // GET /api/products
+router.get('/:id', getProductById);                   // GET /api/products/:id
+router.post('/', upload.single('thumbnail'), createProduct); // POST /api/products
+router.put('/:id', upload.single('thumbnail'), updateProduct); // PUT /api/products/:id
+router.delete('/:id', deleteProduct);                 // DELETE /api/products/:id
 
 export default router;

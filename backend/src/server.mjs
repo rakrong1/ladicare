@@ -1,7 +1,4 @@
 import express from 'express';
-import footerRoutes from '../routes/footerRoutes.js';
-import contactRoutes from '../routes/contactRoutes.js';
-import {paystackRoutes} from '../routes/paymentRoutes.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -10,8 +7,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Op } from 'sequelize'; // ✅ FIXED: Import Sequelize operators
 import { initializeDatabase, Product, Category } from '../db/index.js';
+import footerRoutes from '../routes/footerRoutes.js';
+import contactRoutes from '../routes/contactRoutes.js';
 import adminRoutes from '../routes/admin.js';
+import { paystackRoutes } from '../routes/paymentRoutes.js';
 import apiRoutes from '../routes/api.js';
+import categoryRoutes from '../routes/categoryRoutes.js';
+import productRoutes from '../routes/productRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -55,7 +57,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/uploads', express.static(path.resolve('uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 app.use('/public', express.static(path.join(__dirname, '../public')));
 
 // Health check
@@ -74,6 +77,8 @@ app.use('/api', apiRoutes);
 app.use('/api/footer', footerRoutes); // <-- mount here
 app.use('/api/contact', contactRoutes);
 app.use('/api', paystackRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Default route
 app.get('/', (req, res) => {

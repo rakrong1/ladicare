@@ -6,6 +6,7 @@ interface CartItem {
   price: number;
   quantity: number;
   image: string;
+  stock_quantity?: number;
 }
 
 interface CartState {
@@ -34,10 +35,12 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
       const existingItem = state.items.find(item => item.id === action.payload.id);
+      const maxStock = action.payload.stock_quantity ?? 99;
       if (existingItem) {
+        const newQuantity = Math.min(existingItem.quantity + 1, maxStock);
         const updatedItems = state.items.map(item =>
           item.id === action.payload.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: newQuantity }
             : item
         );
         return {
@@ -106,7 +109,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     itemCount: 0,
   });
 
-  // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem('ladicare-cart');
     if (savedCart) {
@@ -119,7 +121,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('ladicare-cart', JSON.stringify(state.items));
   }, [state.items]);

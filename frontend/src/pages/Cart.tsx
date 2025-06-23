@@ -27,7 +27,7 @@ const Cart = () => {
               </p>
               <Link
                 to="/products"
-                className="glass-button-primary px-8 py-3 inline-flex items-center gap-2 hover-lift"
+                className="glass-button-primary px-8 py-3 inline-flex items-center gap-2 hover-lift cursor-pointer"
               >
                 <ShoppingCart className="w-5 h-5" />
                 Start Shopping
@@ -62,69 +62,84 @@ const Cart = () => {
                 </h2>
                 <button
                   onClick={clearCart}
-                  className="glass-button px-4 py-2 text-sm hover-lift"
+                  className="glass-button px-4 py-2 text-sm hover-lift cursor-pointer"
                 >
                   Clear All
                 </button>
               </div>
 
               <div className="space-y-4">
-                {state.items.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="glass-card p-4 flex items-center gap-4 hover-lift"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    {/* Product Image */}
-                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-purple-200 to-pink-200">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                {state.items.map((item, index) => {
+                  const maxQty = item.stock_quantity ?? 99;
+                  const isMaxReached = item.quantity >= maxQty;
+                  const lowStock = maxQty <= 3;
 
-                    {/* Product Info */}
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-white mb-1">{item.name}</h3>
-                      <p className="text-purple-300 font-medium">${item.price}</p>
-                    </div>
-
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                        className="glass-button p-2 hover-lift"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="text-white font-medium min-w-[2rem] text-center">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                        className="glass-button p-2 hover-lift"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Subtotal */}
-                    <div className="text-right">
-                      <p className="text-white font-semibold">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
-
-                    {/* Remove Button */}
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="glass-button p-2 hover-lift text-red-400 hover:text-red-300"
+                  return (
+                    <div
+                      key={item.id}
+                      className="glass-card p-4 flex items-center gap-4 hover-lift cursor-default"
+                      style={{ animationDelay: `${index * 0.05}s` }}
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      {/* Image */}
+                      <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-purple-200 to-pink-200">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-white mb-1">{item.name}</h3>
+                        <p className="text-purple-300 font-medium">
+                          GHS {Number(item.price).toFixed(2)}
+                        </p>
+                        {lowStock && (
+                          <p className="text-red-400 text-sm mt-1">Only {maxQty} left in stock</p>
+                        )}
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                          className="glass-button p-2 hover-lift cursor-pointer"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="text-white font-medium min-w-[2rem] text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                          disabled={isMaxReached}
+                          className={`glass-button p-2 hover-lift cursor-pointer ${
+                            isMaxReached ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          title={isMaxReached ? 'Max stock reached' : 'Increase quantity'}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Subtotal */}
+                      <div className="text-right">
+                        <p className="text-white font-semibold">
+                          GHS {(Number(item.price) * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+
+                      {/* Remove */}
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="glass-button p-2 hover-lift text-red-400 hover:text-red-300 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -137,7 +152,7 @@ const Cart = () => {
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-white/80">
                   <span>Subtotal ({state.itemCount} items)</span>
-                  <span>${state.total.toFixed(2)}</span>
+                  <span>GHS {Number(state.total).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-white/80">
                   <span>Shipping</span>
@@ -145,12 +160,12 @@ const Cart = () => {
                 </div>
                 <div className="flex justify-between text-white/80">
                   <span>Tax</span>
-                  <span>${(state.total * 0.08).toFixed(2)}</span>
+                  <span>GHS {(Number(state.total) * 0.08).toFixed(2)}</span>
                 </div>
                 <div className="border-t border-white/20 pt-4">
                   <div className="flex justify-between text-xl font-semibold text-white">
                     <span>Total</span>
-                    <span>${(state.total * 1.08).toFixed(2)}</span>
+                    <span>GHS {(Number(state.total) * 1.08).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -158,24 +173,21 @@ const Cart = () => {
               <div className="space-y-3">
                 <Link
                   to="/checkout"
-                  className="glass-button-primary w-full py-4 text-center font-semibold hover-lift block"
+                  className="glass-button-primary w-full py-4 text-center font-semibold hover-lift block cursor-pointer"
                 >
                   Proceed to Checkout
                 </Link>
                 <Link
                   to="/products"
-                  className="glass-button w-full py-3 text-center hover-lift block"
+                  className="glass-button w-full py-3 text-center hover-lift block cursor-pointer"
                 >
                   Continue Shopping
                 </Link>
               </div>
 
-              {/* Security Features */}
-              <div className="mt-6 pt-6 border-t border-white/20">
-                <div className="text-center text-white/70 text-sm">
-                  <p className="mb-2">🔒 Secure Checkout</p>
-                  <p>SSL encrypted payment processing</p>
-                </div>
+              <div className="mt-6 pt-6 border-t border-white/20 text-center text-white/70 text-sm">
+                <p className="mb-2">🔒 Secure Checkout</p>
+                <p>SSL encrypted payment processing</p>
               </div>
             </div>
           </div>

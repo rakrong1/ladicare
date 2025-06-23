@@ -25,7 +25,10 @@ const NotFound = () => {
   }
 
   if (fallbackProducts.length === 0 && category) {
-    fallbackProducts = getProductsByCategory(category);
+    const categoryId = parseInt(category, 10);
+    if (!isNaN(categoryId)) {
+      fallbackProducts = getProductsByCategory(categoryId);
+    }
   }
 
   if (fallbackProducts.length === 0) {
@@ -37,7 +40,7 @@ const NotFound = () => {
       id: product.id,
       name: product.name,
       price: product.price,
-      image: product.images[0],
+      image: product.images?.[0] || '',
     });
   };
 
@@ -59,13 +62,10 @@ const NotFound = () => {
       {/* Suggested Products */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-6xl w-full mx-auto">
         {fallbackProducts.map((product) => (
-          <div
-            key={product.id}
-            className="glass-card overflow-hidden hover-lift group"
-          >
+          <div key={product.id} className="glass-card overflow-hidden hover-lift group">
             <div className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
               <img
-                src={product.images[0]}
+                src={product.images?.[0] || '/placeholder.png'}
                 alt={product.name}
                 className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
               />
@@ -85,7 +85,7 @@ const NotFound = () => {
                     <Star
                       key={i}
                       className={`w-4 h-4 ${
-                        i < Math.floor(product.rating)
+                        i < Math.floor(product.rating || 0)
                           ? "text-yellow-400 fill-current"
                           : "text-gray-400"
                       }`}
@@ -93,7 +93,7 @@ const NotFound = () => {
                   ))}
                 </div>
                 <span className="text-white/60 text-sm ml-2">
-                  ({product.reviewCount})
+                  ({product.reviewCount || 0})
                 </span>
               </div>
 

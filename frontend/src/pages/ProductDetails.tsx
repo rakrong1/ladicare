@@ -6,6 +6,8 @@ import { useCart } from './CartContext';
 import api from '../services/api';
 import { Product } from '../types/product';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -17,19 +19,20 @@ const ProductDetails = () => {
   const {
     data,
     isLoading,
-    isError
+    isError,
   } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => api.get(`/products/${id}`),
-    enabled: !!id
+    queryFn: () => api.get(`/products/id/${id}`), // ✅ match your backend route
+    enabled: !!id,
   });
 
-  const product: Product | undefined = data?.data;
+  const product: Product | undefined = data?.data?.data;
+
+  const getImageUrl = (img?: string) =>
+    img ? `${BACKEND_URL}/uploads/${img}` : '/placeholder.png';
 
   if (isLoading) {
-    return (
-      <div className="pt-32 text-center text-white">Loading product...</div>
-    );
+    return <div className="pt-32 text-center text-white">Loading product...</div>;
   }
 
   if (isError || !product) {
@@ -58,7 +61,11 @@ const ProductDetails = () => {
       id: product.id,
       name: product.name,
       price: product.price,
-      image: product.images?.[0] || '',
+      image: product.thumbnail
+        ? getImageUrl(product.thumbnail)
+        : product.images?.[0]
+        ? getImageUrl(product.images[0])
+        : '',
     });
     setQuantity(1);
   };
@@ -69,34 +76,30 @@ const ProductDetails = () => {
         {/* Breadcrumb */}
         <nav className="mb-8 animate-fade-in">
           <div className="flex items-center space-x-2 text-white/60">
-            <button onClick={() => navigate('/')} className="hover:text-purple-300">
-              Home
-            </button>
+            <button onClick={() => navigate('/')} className="hover:text-purple-300">Home</button>
             <span>/</span>
-            <button onClick={() => navigate('/products')} className="hover:text-purple-300">
-              Products
-            </button>
+            <button onClick={() => navigate('/products')} className="hover:text-purple-300">Products</button>
             <span>/</span>
             <span className="text-white">{product.name}</span>
           </div>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Product Images */}
+          {/* Images */}
           <div className="animate-slide-in-left">
             <div className="glass-card p-6 mb-6">
               <div className="aspect-w-16 aspect-h-12 mb-6 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-200 to-pink-200">
                 <img
-                  src={product.images?.[selectedImage] || ''}
+                  src={getImageUrl(product.images?.[selectedImage] || product.thumbnail)}
                   alt={product.name}
                   className="w-full h-96 object-cover hover-scale"
                 />
               </div>
 
-              {/* Image Thumbnails */}
+              {/* Thumbnails */}
               {product.images?.length > 1 && (
                 <div className="flex gap-3">
-                  {product.images.map((image, index) => (
+                  {product.images.map((img, index) => (
                     <button
                       key={index}
                       onClick={() => setSelectedImage(index)}
@@ -107,8 +110,8 @@ const ProductDetails = () => {
                       }`}
                     >
                       <img
-                        src={image}
-                        alt={`${product.name} ${index + 1}`}
+                        src={getImageUrl(img)}
+                        alt={`Image ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
                     </button>
@@ -147,25 +150,24 @@ const ProductDetails = () => {
                 <span className="text-4xl font-bold text-white">GHS {product.price}</span>
               </div>
 
-              {/* Description */}
-              <p className="text-white/80 text-lg mb-6 leading-relaxed">
-                {product.description}
-              </p>
+              <p className="text-white/80 text-lg mb-6 leading-relaxed">{product.description}</p>
 
               {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-6">
-                {(product.tags || []).map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80 border border-white/20"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
+              {!!product.tags?.length && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {product.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80 border border-white/20"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
 
-              {/* Key Features (optional field) */}
-              {product.features?.length > 0 && (
+              {/* Features */}
+              {!!product.features?.length && (
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold text-white mb-4">Key Features</h3>
                   <ul className="space-y-2">
@@ -204,13 +206,13 @@ const ProductDetails = () => {
                   className="glass-button-primary px-8 py-4 flex-1 font-semibold hover-lift flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  Add to Cart - GHS {(product.price * quantity).toFixed(2)}
+                  Add to Cart – GHS {(product.price * quantity).toFixed(2)}
                 </button>
               </div>
 
               <div className="flex items-center text-green-400 mb-6">
                 <Check className="w-5 h-5 mr-2" />
-                <span>{product.stock_quantity || 0} items in stock</span>
+                <span>{product.stock_quantity || product.stock || 0} items in stock</span>
               </div>
 
               {/* Info */}
@@ -224,7 +226,7 @@ const ProductDetails = () => {
           </div>
         </div>
 
-        {/* You can later add real reviews here */}
+        {/* Add reviews later */}
       </div>
     </div>
   );
