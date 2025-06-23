@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Star, ShoppingCart, Check } from 'lucide-react';
+import { Star, ShoppingCart, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from './CartContext';
 import api from '../services/api';
 import { Product } from '../types/product';
@@ -11,25 +11,30 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, state } = useCart();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [liveStock, setLiveStock] = useState<number>(0);
 
-  const {
-    data,
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => api.get(`/products/id/${id}`), // ✅ match your backend route
+    queryFn: () => api.get(`/products/${id}`),
     enabled: !!id,
   });
 
-  const product: Product | undefined = data?.data?.data;
+  const product: Product | undefined = data?.data;
 
   const getImageUrl = (img?: string) =>
     img ? `${BACKEND_URL}/uploads/${img}` : '/placeholder.png';
+
+  // 🧠 Live Stock Check
+  useEffect(() => {
+    if (product) {
+      const cartQty = state.items.find(i => i.id === product.id)?.quantity || 0;
+      setLiveStock(Math.max(0, (product.stock_quantity || 0) - cartQty));
+    }
+  }, [state.items, product]);
 
   if (isLoading) {
     return <div className="pt-32 text-center text-white">Loading product...</div>;
@@ -44,10 +49,7 @@ const ProductDetails = () => {
             <p className="text-white/70 mb-8">
               The product you're looking for doesn't exist or has been removed.
             </p>
-            <button
-              onClick={() => navigate('/products')}
-              className="glass-button-primary px-8 py-3"
-            >
+            <button onClick={() => navigate('/products')} className="glass-button-primary px-8 py-3">
               Back to Products
             </button>
           </div>
@@ -57,18 +59,17 @@ const ProductDetails = () => {
   }
 
   const handleAddToCart = () => {
+    if (liveStock < quantity) return;
     addItem({
       id: product.id,
       name: product.name,
       price: product.price,
-      image: product.thumbnail
-        ? getImageUrl(product.thumbnail)
-        : product.images?.[0]
-        ? getImageUrl(product.images[0])
-        : '',
+      image: getImageUrl(product.thumbnail || product.images?.[0]),
     });
     setQuantity(1);
   };
+
+  const canAdd = quantity <= liveStock;
 
   return (
     <div className="pt-24 pb-12 px-4">
@@ -88,17 +89,32 @@ const ProductDetails = () => {
           {/* Images */}
           <div className="animate-slide-in-left">
             <div className="glass-card p-6 mb-6">
-              <div className="aspect-w-16 aspect-h-12 mb-6 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-200 to-pink-200">
+              <div className="relative">
                 <img
                   src={getImageUrl(product.images?.[selectedImage] || product.thumbnail)}
                   alt={product.name}
-                  className="w-full h-96 object-cover hover-scale"
+                  className="w-full h-96 object-cover rounded-2xl"
                 />
+                {product.images?.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setSelectedImage(prev => (prev > 0 ? prev - 1 : product.images!.length - 1))}
+                      className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => setSelectedImage(prev => (prev + 1) % product.images!.length)}
+                      className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
               </div>
 
-              {/* Thumbnails */}
               {product.images?.length > 1 && (
-                <div className="flex gap-3">
+                <div className="flex gap-3 mt-4 overflow-x-auto">
                   {product.images.map((img, index) => (
                     <button
                       key={index}
@@ -109,11 +125,7 @@ const ProductDetails = () => {
                           : 'border-white/20 hover:border-white/40'
                       }`}
                     >
-                      <img
-                        src={getImageUrl(img)}
-                        alt={`Image ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={getImageUrl(img)} alt={`Image ${index + 1}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -147,7 +159,14 @@ const ProductDetails = () => {
 
               {/* Price */}
               <div className="mb-6">
-                <span className="text-4xl font-bold text-white">GHS {product.price}</span>
+                <span className="text-4xl font-bold text-white">
+                  GHS {Number(product.price).toFixed(2)}
+                </span>
+                {product.original_price && Number(product.original_price) > Number(product.price) && (
+                  <span className="text-white/50 line-through ml-4 text-xl">
+                    GHS {Number(product.original_price).toFixed(2)}
+                  </span>
+                )}
               </div>
 
               <p className="text-white/80 text-lg mb-6 leading-relaxed">{product.description}</p>
@@ -156,10 +175,7 @@ const ProductDetails = () => {
               {!!product.tags?.length && (
                 <div className="flex flex-wrap gap-2 mb-6">
                   {product.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80 border border-white/20"
-                    >
+                    <span key={tag} className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80 border border-white/20">
                       {tag}
                     </span>
                   ))}
@@ -196,6 +212,7 @@ const ProductDetails = () => {
                   <button
                     onClick={() => setQuantity(quantity + 1)}
                     className="glass-button p-2 text-sm"
+                    disabled={!canAdd}
                   >
                     +
                   </button>
@@ -203,30 +220,41 @@ const ProductDetails = () => {
 
                 <button
                   onClick={handleAddToCart}
-                  className="glass-button-primary px-8 py-4 flex-1 font-semibold hover-lift flex items-center justify-center gap-2"
+                  disabled={!canAdd}
+                  className="glass-button-primary px-8 py-4 flex-1 font-semibold hover-lift flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <ShoppingCart className="w-5 h-5" />
                   Add to Cart – GHS {(product.price * quantity).toFixed(2)}
                 </button>
               </div>
 
-              <div className="flex items-center text-green-400 mb-6">
+              <div className={`flex items-center mb-6 ${
+                liveStock <= 0 ? 'text-red-400' :
+                liveStock <= 3 ? 'text-yellow-400' : 'text-green-400'
+              }`}>
                 <Check className="w-5 h-5 mr-2" />
-                <span>{product.stock_quantity || product.stock || 0} items in stock</span>
+                <span>
+                  {liveStock <= 0
+                    ? 'Out of Stock'
+                    : liveStock <= 3
+                    ? `Only ${liveStock} left!`
+                    : `${liveStock} items in stock`}
+                </span>
               </div>
+
 
               {/* Info */}
               <div className="border-t border-white/20 pt-6 space-y-3 text-sm text-white/70">
                 <p>✅ Free shipping on orders over GHS 200</p>
                 <p>🔄 30-day return policy</p>
                 <p>🔒 Secure payment</p>
-                <p>🚚 Delivery within 2-4 business days</p>
+                <p>🚚 Delivery within 1-4 business days</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Add reviews later */}
+        {/* Reviews Section – TODO */}
       </div>
     </div>
   );

@@ -35,12 +35,10 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
       const existingItem = state.items.find(item => item.id === action.payload.id);
-      const maxStock = action.payload.stock_quantity ?? 99;
       if (existingItem) {
-        const newQuantity = Math.min(existingItem.quantity + 1, maxStock);
         const updatedItems = state.items.map(item =>
           item.id === action.payload.id
-            ? { ...item, quantity: newQuantity }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
         return {
@@ -59,15 +57,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         };
       }
     }
-    case 'REMOVE_ITEM': {
-      const newItems = state.items.filter(item => item.id !== action.payload);
-      return {
-        ...state,
-        items: newItems,
-        total: newItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        itemCount: newItems.reduce((count, item) => count + item.quantity, 0),
-      };
-    }
+
     case 'UPDATE_QUANTITY': {
       if (action.payload.quantity <= 0) {
         return cartReducer(state, { type: 'REMOVE_ITEM', payload: action.payload.id });
@@ -84,12 +74,24 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         itemCount: updatedItems.reduce((count, item) => count + item.quantity, 0),
       };
     }
+
+    case 'REMOVE_ITEM': {
+      const newItems = state.items.filter(item => item.id !== action.payload);
+      return {
+        ...state,
+        items: newItems,
+        total: newItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        itemCount: newItems.reduce((count, item) => count + item.quantity, 0),
+      };
+    }
+
     case 'CLEAR_CART':
       return {
         items: [],
         total: 0,
         itemCount: 0,
       };
+
     case 'LOAD_CART': {
       return {
         items: action.payload,
@@ -97,6 +99,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         itemCount: action.payload.reduce((count, item) => count + item.quantity, 0),
       };
     }
+
     default:
       return state;
   }

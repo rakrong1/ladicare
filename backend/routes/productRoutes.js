@@ -19,5 +19,6 @@ router.get('/:id', getProductById);                   // GET /api/products/:id
 router.post('/', upload.single('thumbnail'), createProduct); // POST /api/products
 router.put('/:id', upload.single('thumbnail'), updateProduct); // PUT /api/products/:id
 router.delete('/:id', deleteProduct);                 // DELETE /api/products/:id
+router.get('/id/:id', getProductById);
 
 export default router;

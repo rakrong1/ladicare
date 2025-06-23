@@ -8,12 +8,19 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const Home = () => {
   const { visibleProducts, categories, loading } = useProducts();
-  const { addItem } = useCart();
+  const { state: cartState, addItem } = useCart();
 
-  const featuredProducts = visibleProducts.slice(0, 4);
+  // Only show products with featured === true
+  const featuredProducts = visibleProducts.filter(p => p.is_featured);
+
+  const getProductQuantityInCart = (productId: string) => {
+    const item = cartState.items.find(i => i.id === productId);
+    return item ? item.quantity : 0;
+  };
 
   const handleAddToCart = (product: any) => {
-    if (product.stock_quantity <= 0) return;
+    const currentQtyInCart = getProductQuantityInCart(product.id);
+    if (product.stock_quantity <= currentQtyInCart) return;
 
     const imageUrl = product.thumbnail
       ? `${BACKEND_URL}/uploads/${product.thumbnail}`
@@ -77,10 +84,9 @@ const Home = () => {
               Explore our curated collection of beauty essentials
             </p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 stagger-children">
             {categories.length ? (
-              categories.map((category) => (
+              categories.map(category => (
                 <Link
                   key={category.id}
                   to={`/products?category=${category.id}`}
@@ -115,46 +121,48 @@ const Home = () => {
             <p className="text-xl text-white/80 animate-fade-in">Discover our most loved products</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 stagger-children">
-            {featuredProducts.map((product) => {
-              const imageUrl = product.thumbnail
-                ? `${BACKEND_URL}/uploads/${product.thumbnail}`
-                : product.images?.[0]
-                ? `${BACKEND_URL}/uploads/${product.images[0]}`
-                : '/placeholder.png';
+          {featuredProducts.length === 0 ? (
+            <p className="text-white/70 text-center">No featured products at the moment.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 stagger-children">
+              {featuredProducts.map(product => {
+                const imageUrl = product.thumbnail
+                  ? `${BACKEND_URL}/uploads/${product.thumbnail}`
+                  : product.images?.[0]
+                  ? `${BACKEND_URL}/uploads/${product.images[0]}`
+                  : '/placeholder.png';
 
-              const stockText =
-                product.stock_quantity === 0
+                const inCartQty = getProductQuantityInCart(product.id);
+                const remainingQty = (product.stock_quantity || 0) - inCartQty;
+                const isOutOfStock = remainingQty <= 0;
+
+                const stockText = isOutOfStock
                   ? 'Out of Stock'
-                  : product.stock_quantity <= 3
-                  ? `Only ${product.stock_quantity} left!`
-                  : `In Stock: ${product.stock_quantity}`;
+                  : remainingQty <= 3
+                  ? `Only ${remainingQty} left!`
+                  : `In Stock: ${remainingQty}`;
 
-              const stockColor =
-                product.stock_quantity === 0
+                const stockColor = isOutOfStock
                   ? 'text-red-400'
-                  : product.stock_quantity <= 3
+                  : remainingQty <= 3
                   ? 'text-yellow-400'
                   : 'text-green-400';
 
-              return (
-                <div key={product.id} className="glass-card overflow-hidden hover-lift product-card-tilt group">
-                  <div className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
-                    <img
-                      src={imageUrl}
-                      alt={product.name}
-                      className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-semibold text-lg text-white mb-2 group-hover:text-purple-300 transition-colors">
-                      {product.name}
-                    </h3>
-                    <p className="text-white/70 text-sm mb-4 line-clamp-2">{product.description}</p>
-
-                    {/* Ratings */}
-                    <div className="flex items-center mb-3">
-                      <div className="flex items-center">
+                return (
+                  <div key={product.id} className="glass-card overflow-hidden hover-lift product-card-tilt group cursor-pointer">
+                    <div className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
+                      <img
+                        src={imageUrl}
+                        alt={product.name}
+                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-semibold text-lg text-white mb-2 group-hover:text-purple-300 transition-colors">
+                        {product.name}
+                      </h3>
+                      <p className="text-white/70 text-sm mb-4 line-clamp-2">{product.description}</p>
+                      <div className="flex items-center mb-3">
                         {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
@@ -165,41 +173,28 @@ const Home = () => {
                             }`}
                           />
                         ))}
+                        <span className="text-white/60 text-sm ml-2">({product.reviewCount || 0})</span>
                       </div>
-                      <span className="text-white/60 text-sm ml-2">
-                        ({product.reviewCount || 0})
-                      </span>
-                    </div>
-
-                    {/* Price + Stock */}
-                    <div className="mb-2">
-                      <span className="text-2xl font-bold text-white">
-                        GHS {Number(product.price).toFixed(2)}
-                      </span>
-                      {product.original_price &&
-                        Number(product.original_price) > Number(product.price) && (
-                          <span className="text-white/50 line-through text-sm ml-2">
-                            GHS {Number(product.original_price).toFixed(2)}
-                          </span>
+                      <div className="mb-2">
+                        <span className="text-2xl font-bold text-white">GHS {Number(product.price).toFixed(2)}</span>
+                        {product.original_price && Number(product.original_price) > Number(product.price) && (
+                          <span className="text-white/50 line-through text-sm ml-2">GHS {Number(product.original_price).toFixed(2)}</span>
                         )}
+                      </div>
+                      <div className={`text-sm mb-4 ${stockColor}`}>{stockText}</div>
+                      <button
+                        className="glass-button w-full py-2 mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => handleAddToCart(product)}
+                        disabled={isOutOfStock}
+                      >
+                        {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                      </button>
                     </div>
-
-                    <div className={`text-sm mb-4 ${stockColor}`}>
-                      {stockText}
-                    </div>
-
-                    <button
-                      className="glass-button w-full py-2 mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleAddToCart(product)}
-                      disabled={product.stock_quantity === 0}
-                    >
-                      {product.stock_quantity === 0 ? 'Out of Stock' : 'Add to Cart'}
-                    </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="text-center mt-12">
             <Link
@@ -217,18 +212,15 @@ const Home = () => {
       <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">
-              Why Choose Ladicare?
-            </h2>
+            <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">Why Choose Ladicare?</h2>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-children">
             {[
               { icon: '✨', title: 'Premium Quality', desc: 'Top-tier ingredients. Exceptional results.' },
               { icon: '🚚', title: 'Fast Shipping', desc: 'Quick, tracked delivery to your door.' },
               { icon: '💝', title: 'Customer Care', desc: 'Friendly, helpful support whenever you need it.' }
             ].map((item, i) => (
-              <div key={i} className="glass-card p-8 text-center hover-lift">
+              <div key={i} className="glass-card p-8 text-center hover-lift cursor-pointer">
                 <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-2xl">
                   {item.icon}
                 </div>
