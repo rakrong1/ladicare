@@ -58,24 +58,30 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const [productRes, categoryRes] = await Promise.all([
-        api.get<Product[]>('/products'),
-        api.get<Category[]>('/categories'),
-      ]);
+    const categoryParam = new URLSearchParams(window.location.search).get('category');
+    const productUrl = categoryParam
+      ? `/products?category=${categoryParam}`
+      : `/products`;
 
-      setProducts(Array.isArray(productRes) ? productRes : []);
-      setCategories(Array.isArray(categoryRes) ? categoryRes : []);
-      setError(null);
-    } catch (err) {
-      console.error('❌ Fetch error in ProductContext:', err);
-      setError('Failed to fetch products or categories.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const [productRes, categoryRes] = await Promise.all([
+      api.get<Product[]>(productUrl),
+      api.get<Category[]>('/categories'),
+    ]);
+
+    setProducts(Array.isArray(productRes) ? productRes : []);
+    setCategories(Array.isArray(categoryRes) ? categoryRes : []);
+    setError(null);
+  } catch (err) {
+    console.error('❌ Fetch error in ProductContext:', err);
+    setError('Failed to fetch products or categories.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchData();

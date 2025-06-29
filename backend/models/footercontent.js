@@ -1,17 +1,36 @@
-// models/footercontent.js
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/db.js '; // your Sequelize instance
+import sequelize from '../config/db.js';
 
 const FooterContent = sequelize.define('FooterContent', {
-  description: DataTypes.TEXT,
-  socialLinks: DataTypes.JSON,
-  quickLinks: DataTypes.JSON,
-  serviceLinks: DataTypes.JSON,
-  copyright: DataTypes.STRING,
-  status: DataTypes.STRING,
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  social_links: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+  },
+  quick_links: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+  },
+  service_links: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+  },
+  copyright: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'active',
+  },
 }, {
-  tableName: 'footer_contents', // ensure matches table name in DB
+  tableName: 'footer_contents',
   timestamps: true,
+  underscored: true, // maps camelCase to snake_case columns
 });
 
 export default FooterContent;

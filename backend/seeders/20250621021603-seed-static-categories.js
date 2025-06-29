@@ -31,8 +31,7 @@ export async function up(queryInterface, Sequelize) {
   );
 }
 
-export async function down(queryInterface) {
-  return queryInterface.bulkDelete('categories', {
-    name: ['Skincare', 'Makeup', 'Haircare']
-  });
+export async function down(queryInterface, Sequelize) {
+  await queryInterface.bulkDelete('products', null, {});     // Delete dependent products first
+  await queryInterface.bulkDelete('categories', null, {});   // Then delete categories
 }

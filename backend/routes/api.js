@@ -1,9 +1,9 @@
-// backend/src/routes/index.js or api.js
+// backend/src/routes/api.js
 import { Router } from 'express';
 
 const router = Router();
 
-// Health check endpoint
+// ✅ Health check endpoint
 router.get('/health', (req, res) => {
   res.json({
     status: 'success',
@@ -14,7 +14,7 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Simple test endpoint
+// ✅ Test endpoint
 router.get('/test', (req, res) => {
   res.json({
     status: 'success',
@@ -23,6 +23,15 @@ router.get('/test', (req, res) => {
       users: ['Alice', 'Bob', 'Charlie'],
       count: 3
     }
+  });
+});
+
+// ✅ Optional: root
+router.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ladicare API root',
+    endpoints: ['/health', '/test']
   });
 });
 

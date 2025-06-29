@@ -1,8 +1,11 @@
-// backend/routes/footerRoutes.js
+// routes/footerRoutes.js
 import express from 'express';
-import {getFooter} from '../controllers/footerController.js';
+import { getFooter } from '../controllers/footerController.js';
 
 const router = express.Router();
-router.get('/', getFooter);
+
+// Public API route
+router.get('/', getFooter); // <-- THIS makes /api/footer work
+
 
 export default router;

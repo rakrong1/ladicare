@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ShoppingCart, ArrowDown } from 'lucide-react';
 import { useProducts } from './ProductContext';
 import { useCart } from './CartContext';
+import { useAuth } from './AuthContext';
+import AuthModal from '@/components/auth/AuthModal';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const Home = () => {
   const { visibleProducts, categories, loading } = useProducts();
+  const { isAuthenticated } = useAuth();
   const { state: cartState, addItem } = useCart();
 
-  // Only show products with featured === true
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   const featuredProducts = visibleProducts.filter(p => p.is_featured);
 
   const getProductQuantityInCart = (productId: string) => {
@@ -19,6 +23,11 @@ const Home = () => {
   };
 
   const handleAddToCart = (product: any) => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     const currentQtyInCart = getProductQuantityInCart(product.id);
     if (product.stock_quantity <= currentQtyInCart) return;
 
@@ -45,12 +54,15 @@ const Home = () => {
   }
 
   return (
-    <div className="pt-20">
+    <div className="pt-2">
+      {/* 🔐 Auth Modal */}
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-blue-900/50 to-indigo-900/50" />
         <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
-          <h1 className="font-display text-6xl md:text-8xl font-bold text-white mb-6 animate-fade-in text-shadow">
+          <h1 className="font-display pt-40 md:pt-60 text-5xl md:text-8xl font-bold text-white mb-6 animate-fade-in text-shadow">
             Discover Your
             <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent block">
               Natural Beauty
@@ -59,7 +71,7 @@ const Home = () => {
           <p className="text-xl md:text-2xl text-white/90 mb-8 animate-slide-in-left">
             Premium skincare and beauty products crafted to enhance your natural radiance.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-in-right">
+          <div className="flex pt-10 md:pt-20 mb-16 gap-4 justify-center animate-slide-in-right">
             <Link to="/products" className="glass-button-primary px-8 py-4 text-lg font-semibold hover-lift inline-flex items-center gap-2 cursor-pointer">
               Shop Now <ShoppingCart className="w-5 h-5" />
             </Link>
@@ -68,13 +80,13 @@ const Home = () => {
             </Link>
           </div>
         </div>
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-float">
+        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 animate-float">
           <ArrowDown className="w-6 h-6 text-white/60" />
         </div>
       </section>
 
       {/* Categories */}
-      <section className="py-20 px-4">
+      <section className="py-2 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">
@@ -92,16 +104,9 @@ const Home = () => {
                   to={`/products?category=${category.id}`}
                   className="glass-card p-6 text-center hover-lift card-3d group cursor-pointer"
                 >
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-2xl">
-                    🌟
-                  </div>
                   <h3 className="font-semibold text-xl text-white mb-2 group-hover:text-purple-300 transition-colors">
                     {category.name}
                   </h3>
-                  <p className="text-white/70 mb-4">{category.description || 'No description'}</p>
-                  <span className="text-purple-300 font-medium">
-                    {category.productCount || 0} products
-                  </span>
                 </Link>
               ))
             ) : (
@@ -112,7 +117,7 @@ const Home = () => {
       </section>
 
       {/* Featured Products */}
-      <section className="py-20 px-4">
+      <section className="py-0 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">
@@ -150,13 +155,17 @@ const Home = () => {
 
                 return (
                   <div key={product.id} className="glass-card overflow-hidden hover-lift product-card-tilt group cursor-pointer">
-                    <div className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
+                    <Link
+                      to={`/products/${product.id}`}
+                      className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden block"
+                    >
                       <img
                         src={imageUrl}
                         alt={product.name}
-                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                        className="w-full h-65 object-cover group-hover:scale-110 transition-transform duration-500"
                       />
-                    </div>
+                    </Link>
+
                     <div className="p-6">
                       <h3 className="font-semibold text-lg text-white mb-2 group-hover:text-purple-300 transition-colors">
                         {product.name}

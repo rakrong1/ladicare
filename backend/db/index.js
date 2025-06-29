@@ -1,6 +1,7 @@
 // backend/db/index.js - Sequelize models
 import { Sequelize, DataTypes } from 'sequelize';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
@@ -65,7 +66,7 @@ const Product = sequelize.define('Product', {
   videos: { type: DataTypes.JSONB, defaultValue: [] },
   status: { type: DataTypes.ENUM('pending', 'approved', 'rejected'), defaultValue: 'pending' },
   rejection_reason: { type: DataTypes.TEXT },
-  stock_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  stock_quantity: { type: DataTypes.INTEGER, allowNull: false },
   is_featured: { type: DataTypes.BOOLEAN, defaultValue: false },
   weight: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
   dimensions: { type: DataTypes.JSONB, allowNull: true },
@@ -119,7 +120,6 @@ const Order = sequelize.define('Order', {
   customer_info: { type: DataTypes.JSONB, allowNull: false },
   products: { type: DataTypes.JSONB, allowNull: false },
   subtotal: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  // ... other fields
 }, {
   tableName: 'orders',
   timestamps: true,
@@ -141,7 +141,7 @@ const ProductVariant = sequelize.define('ProductVariant', {
   name: { type: DataTypes.STRING, allowNull: false },
   sku: { type: DataTypes.STRING, allowNull: true },
   price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  quantity: { type: DataTypes.INTEGER, allowNull: false },
   attributes: { type: DataTypes.JSONB, allowNull: true, defaultValue: {} },
 }, {
   tableName: 'product_variants',
@@ -151,9 +151,6 @@ const ProductVariant = sequelize.define('ProductVariant', {
 
 ProductVariant.belongsTo(Product, { foreignKey: 'product_id' });
 Product.hasMany(ProductVariant, { foreignKey: 'product_id', as: 'variants' });
-
-// then export it:
-export { ProductVariant }; // or add it to the main export block
 
 const Review = sequelize.define('Review', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -167,14 +164,63 @@ const Review = sequelize.define('Review', {
   underscored: true,
 });
 
-// relations
+const FooterContent = sequelize.define('FooterContent', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  description: { type: DataTypes.TEXT, allowNull: false },
+  socialLinks: {
+    type: DataTypes.JSONB,
+    field: 'social_links',
+    defaultValue: []
+  },
+  quickLinks: {
+    type: DataTypes.JSONB,
+    field: 'quick_links',
+    defaultValue: []
+  },
+  serviceLinks: {
+    type: DataTypes.JSONB,
+    field: 'service_links',
+    defaultValue: []
+  },
+  copyright: { type: DataTypes.STRING, allowNull: false },
+  status: { type: DataTypes.STRING, defaultValue: 'active' },
+}, {
+  tableName: 'footer_contents',
+  timestamps: true,
+  underscored: true,
+});
+
+const User = sequelize.define('User', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  name: { type: DataTypes.STRING, allowNull: false },
+  email: { type: DataTypes.STRING, allowNull: false, unique: true },
+  password: { type: DataTypes.STRING, allowNull: false },
+  role: { type: DataTypes.ENUM('superAdmin', 'admin', 'customer'), defaultValue: 'customer' },
+}, {
+  tableName: 'users',
+  timestamps: true,
+  underscored: true,
+  hooks: {
+    beforeCreate: async (user) => {
+      user.password = await bcrypt.hash(user.password, 10);
+    },
+    beforeUpdate: async (user) => {
+      if (user.changed('password')) {
+        user.password = await bcrypt.hash(user.password, 10);
+      }
+    }
+  }
+});
+
+// relationships
 Review.belongsTo(Product, { foreignKey: 'product_id' });
 Product.hasMany(Review, { foreignKey: 'product_id', as: 'reviews' });
 
-
-// ASSOCIATIONS
 Product.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 Category.hasMany(Product, { foreignKey: 'category_id', as: 'products' });
+
+Order.belongsTo(User, { foreignKey: 'user_id' });
+User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
 
 const connectDatabase = async () => {
   await sequelize.authenticate();
@@ -183,7 +229,7 @@ const connectDatabase = async () => {
 
 const initializeDatabase = async () => {
   await connectDatabase();
-  await sequelize.sync();
+  await sequelize.sync({ alter: false });
 };
 
 export {
@@ -195,4 +241,7 @@ export {
   AdminLog,
   Order,
   Review,
+  FooterContent,
+  User,
+  ProductVariant
 };

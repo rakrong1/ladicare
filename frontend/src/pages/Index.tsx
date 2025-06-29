@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './AuthContext';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import Home from './Home';
@@ -19,6 +20,8 @@ import '../styles/3d-effects.css';
 
 const Index = () => {
   return (
+    <Router>
+    <AuthProvider>
     <ProductProvider>
       <CartProvider>
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -39,6 +42,8 @@ const Index = () => {
         </div>
       </CartProvider>
     </ProductProvider>
+    </AuthProvider>
+    </Router>
   );
 };
 

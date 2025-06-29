@@ -32,7 +32,7 @@ export const ProductCard = ({ product, stock, onAdd }) => {
           <img
             src={imageUrl}
             alt={product.name}
-            className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+            className="w-full h-65 object-cover group-hover:scale-110 transition-transform duration-500"
           />
         </div>
         <div className="p-6">

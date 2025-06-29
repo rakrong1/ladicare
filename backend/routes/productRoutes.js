@@ -13,12 +13,11 @@ import {
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
-// These paths are relative to /api/products
+// Routes relative to /api/products
 router.get('/', getProducts);                         // GET /api/products
 router.get('/:id', getProductById);                   // GET /api/products/:id
 router.post('/', upload.single('thumbnail'), createProduct); // POST /api/products
 router.put('/:id', upload.single('thumbnail'), updateProduct); // PUT /api/products/:id
 router.delete('/:id', deleteProduct);                 // DELETE /api/products/:id
-router.get('/id/:id', getProductById);
 
 export default router;

@@ -1,4 +1,6 @@
+// ✅ CartContext.tsx
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 interface CartItem {
   id: string;
@@ -112,6 +114,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     itemCount: 0,
   });
 
+  const { user, openModal } = useAuth();
+
   useEffect(() => {
     const savedCart = localStorage.getItem('ladicare-cart');
     if (savedCart) {
@@ -129,18 +133,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items]);
 
   const addItem = (item: Omit<CartItem, 'quantity'>) => {
+    if (!user) return openModal();
     dispatch({ type: 'ADD_ITEM', payload: item });
   };
 
   const removeItem = (id: string) => {
+    if (!user) return openModal();
     dispatch({ type: 'REMOVE_ITEM', payload: id });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
+    if (!user) return openModal();
     dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
   };
 
   const clearCart = () => {
+    if (!user) return openModal();
     dispatch({ type: 'CLEAR_CART' });
   };
 

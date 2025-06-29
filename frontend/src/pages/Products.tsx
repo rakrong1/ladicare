@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useProducts } from './ProductContext';
 import { useCart } from './CartContext';
+import { useAuth } from './AuthContext';
 import { useLocation } from 'react-router-dom';
 import api from '@/services/api';
 import { ProductCard } from '@/components/ProductCard';
@@ -15,8 +16,9 @@ const Products = () => {
   const params = new URLSearchParams(location.search);
   const selectedCategory = params.get('category');
 
-  const { visibleProducts, categories, loading, error, searchProducts } = useProducts();
+  const { visibleProducts, categories, loading, error } = useProducts();
   const { addItem, state: cartState } = useCart();
+  const { isAuthenticated, openModal } = useAuth();
 
   const [query, setQuery] = useState('');
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -46,18 +48,21 @@ const Products = () => {
   });
 
   useEffect(() => {
-    let results = query.trim() ? searchProducts(query) : visibleProducts;
-    if (selectedCategory) {
-      results = results.filter(p =>
-        String(p.category_id) === selectedCategory || String(p.category?.id) === selectedCategory
-      );
-    }
-    if (tagFilter) {
-      results = results.filter(p => Array.isArray(p.tags) && p.tags.includes(tagFilter));
-    }
-    setFiltered(results);
-    setCurrentPage(1);
-  }, [query, visibleProducts, selectedCategory, tagFilter]);
+    const fetchFilteredProducts = async () => {
+      try {
+        const productUrl = selectedCategory
+          ? `/products?category=${selectedCategory}`
+          : `/products`;
+
+        const response = await api.get(productUrl);
+        const data = response?.data || response;
+        setFiltered(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('❌ Failed to fetch filtered products:', err);
+      }
+    };
+    fetchFilteredProducts();
+  }, [selectedCategory, query, tagFilter]);
 
   useEffect(() => {
     const sorted = [...filtered].sort((a, b) => {
@@ -88,8 +93,14 @@ const Products = () => {
   }, [cartState.items]);
 
   const handleAddToCart = (product: any) => {
+    if (!isAuthenticated) {
+      openModal(); // 🔐 trigger login modal if user is not logged in
+      return;
+    }
+
     const stock = liveStock[product.id] ?? product.stock_quantity ?? 0;
     if (!stock) return;
+
     addItem({
       id: product.id,
       name: product.name,
@@ -100,10 +111,13 @@ const Products = () => {
           ? `${BACKEND_URL}/uploads/${product.images[0]}`
           : '/placeholder.png'
     });
+
     setLiveStock(prev => ({ ...prev, [product.id]: Math.max(0, prev[product.id] - 1) }));
+
     const newView = { ...product };
-    localStorage.setItem('rv', JSON.stringify([newView, ...(recentlyViewed.filter(r => r.id !== product.id).slice(0, 4))]));
-    setRecentlyViewed([newView, ...recentlyViewed.filter(r => r.id !== product.id)].slice(0, 5));
+    const updated = [newView, ...recentlyViewed.filter(r => r.id !== product.id)].slice(0, 5);
+    localStorage.setItem('rv', JSON.stringify(updated));
+    setRecentlyViewed(updated);
   };
 
   useEffect(() => {
@@ -112,16 +126,17 @@ const Products = () => {
     if (rv.length) {
       const cat = rv[0].category_id;
       setSuggestions(visibleProducts.filter(p => p.category_id === cat && !rv.find(r => r.id === p.id)).slice(0, 4));
-    } else setSuggestions([]);
+    } else {
+      setSuggestions([]);
+    }
   }, [visibleProducts]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const displayItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const currentCategory = selectedCategory ? categories.find(c => String(c.id) === selectedCategory)?.name : null;
 
   if (loading) return <p className="text-white text-center mt-20">Loading products...</p>;
   if (error) return <p className="text-red-400 text-center mt-20">{error}</p>;
-
-  const currentCategory = selectedCategory ? categories.find(c => String(c.id) === selectedCategory)?.name : null;
 
   return (
     <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto space-y-12">

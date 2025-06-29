@@ -1,16 +1,19 @@
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 import { Product, Category, Review, ProductVariant } from '../db/index.js';
 import handleError from '../utils/errorHandler.js';
 
 // ✅ GET /api/products - with optional filters
 export const getProducts = async (req, res) => {
   try {
-    const { sellerId, status, is_featured } = req.query;
+    const { sellerId, status, is_featured, category } = req.query;
     const where = {};
 
     if (sellerId) where.sellerId = sellerId;
     if (status) where.status = status;
     if (is_featured !== undefined) where.is_featured = is_featured === 'true';
+    if (category) where.category_id = category;
 
     const products = await Product.findAll({
       where,
@@ -28,7 +31,6 @@ export const getProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
-
     const product = await Product.findByPk(id, {
       include: [
         { model: Category, as: 'category' },
@@ -104,7 +106,7 @@ export const createProduct = async (req, res) => {
       description,
       price,
       original_price,
-      stock,
+      stock_quantity,
       category_id,
       sellerId,
       tags,
@@ -125,7 +127,7 @@ export const createProduct = async (req, res) => {
       description,
       price,
       original_price: original_price || price,
-      stock_quantity: stock,
+      stock_quantity: Number.isNaN(parseInt(stock_quantity)) ? 0 : parseInt(stock_quantity),
       category_id,
       thumbnail,
       slug,
@@ -150,10 +152,16 @@ export const updateProduct = async (req, res) => {
     const product = await Product.findByPk(id);
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
+    if (req.file) {
+      if (product.thumbnail) {
+        const oldPath = path.join('uploads', product.thumbnail);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      req.body.thumbnail = req.file.filename;
+    }
+
     if (req.body.stock) req.body.stock_quantity = req.body.stock;
     if (!req.body.original_price) req.body.original_price = req.body.price;
-
-    if (req.file) req.body.thumbnail = req.file.filename;
     if (req.body.category_id) req.body.category_id = parseInt(req.body.category_id);
 
     if (req.body.tags && typeof req.body.tags === 'string') {
@@ -175,9 +183,15 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Product.destroy({ where: { id } });
-    if (!deleted) return res.status(404).json({ error: 'Product not found' });
+    const product = await Product.findByPk(id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
 
+    if (product.thumbnail) {
+      const filePath = path.join('uploads', product.thumbnail);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    await product.destroy();
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     console.error('Delete error:', error);

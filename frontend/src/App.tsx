@@ -2,7 +2,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router-dom";
 import Index from "./pages/Index";
 import ChatWidget from "./components/chat/ChatWidget";
 
@@ -13,10 +12,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Index />
-        <ChatWidget />
-      </BrowserRouter>
+      <Index />      {/* <--- Let Index handle routing */}
+      <ChatWidget />
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -1,41 +1,46 @@
 export async function up(queryInterface, Sequelize) {
   await queryInterface.createTable('footer_contents', {
     id: {
-      allowNull: false,
-      autoIncrement: true,
-      primaryKey: true,
       type: Sequelize.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
     description: {
       type: Sequelize.TEXT,
+      allowNull: true
     },
-    socialLinks: {
+    social_links: {
       type: Sequelize.JSON,
+      allowNull: true
     },
-    quickLinks: {
+    quick_links: {
       type: Sequelize.JSON,
+      allowNull: true
     },
-    serviceLinks: {
+    service_links: {
       type: Sequelize.JSON,
+      allowNull: true
     },
     copyright: {
       type: Sequelize.STRING,
+      allowNull: true
     },
     status: {
       type: Sequelize.STRING,
-      defaultValue: 'active',
-    },
-    createdAt: {
       allowNull: false,
-      type: Sequelize.DATE,
+      defaultValue: 'active'
     },
-    updatedAt: {
-      allowNull: false,
+    created_at: {
       type: Sequelize.DATE,
+      allowNull: false
     },
+    updated_at: {
+      type: Sequelize.DATE,
+      allowNull: false
+    }
   });
 }
 
-export async function down(queryInterface) {
+export async function down(queryInterface, Sequelize) {
   await queryInterface.dropTable('footer_contents');
 }
