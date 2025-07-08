@@ -1,4 +1,3 @@
-// backend/src/routes/admin.js
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -11,24 +10,24 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// ✅ Dev-only mock middleware for testing (remove in production)
+// 🔓 Dev-only override: logs in a default superAdmin
 if (process.env.NODE_ENV === 'development') {
   router.use((req, res, next) => {
     req.user = {
       id: 1,
       email: 'super@ladicare.com',
-      role: 'superAdmin' // must match DB enum!
+      role: 'superAdmin'
     };
     next();
   });
 }
 
-// ✅ File upload config
+// 🖼️ File upload config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads/'),
   filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + unique + path.extname(file.originalname));
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${file.fieldname}-${unique}${path.extname(file.originalname)}`);
   }
 });
 
@@ -37,16 +36,18 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|gif|webp|mp4|mov|avi/;
-    const isValid = allowed.test(path.extname(file.originalname).toLowerCase()) && allowed.test(file.mimetype);
+    const isValid =
+      allowed.test(path.extname(file.originalname).toLowerCase()) &&
+      allowed.test(file.mimetype);
     cb(isValid ? null : new Error('Only images and videos are allowed'), isValid);
   }
 });
 
-// ✅ Admin action logger
-const logAdminAction = async (req, res, next) => {
-  const originalSend = res.send;
-  res.send = function (data) {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
+// 📋 Logger middleware
+router.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    if (res.statusCode < 400) {
       AdminLog.create({
         action: req.method,
         resource_type: req.route?.path || req.path,
@@ -56,26 +57,23 @@ const logAdminAction = async (req, res, next) => {
           url: req.originalUrl,
           body: req.body,
           params: req.params,
-          timestamp: new Date().toISOString()
+          duration: `${Date.now() - start}ms`
         },
         ip_address: req.ip,
         user_agent: req.headers['user-agent']
-      }).catch(err => console.error('Logging error:', err));
+      }).catch(console.error);
     }
-    originalSend.call(this, data);
-  };
+  });
   next();
-};
+});
 
-router.use(logAdminAction);
+// ========================= PRODUCT ROUTES =========================
 
-// ======================= PRODUCT ROUTES =======================
-
-// ✅ Get all products
 router.get('/products', async (req, res) => {
   try {
     const { page = 1, limit = 10, status, category } = req.query;
     const offset = (page - 1) * limit;
+
     const where = {};
     if (status) where.status = status;
     if (category) where.category_id = category;
@@ -92,8 +90,8 @@ router.get('/products', async (req, res) => {
       success: true,
       data: products.rows,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: +page,
+        limit: +limit,
         total: products.count,
         pages: Math.ceil(products.count / limit)
       }
@@ -103,7 +101,6 @@ router.get('/products', async (req, res) => {
   }
 });
 
-// ✅ Get single product
 router.get('/products/:id', async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id, {
@@ -116,62 +113,73 @@ router.get('/products/:id', async (req, res) => {
   }
 });
 
-// ✅ Create product
-router.post('/products', upload.fields([
-  { name: 'images', maxCount: 10 },
-  { name: 'videos', maxCount: 5 }
-]), async (req, res) => {
-  try {
-    const { name, description, price, category_id } = req.body;
-    const images = req.files?.images?.map(f => `/uploads/${f.filename}`) || [];
-    const videos = req.files?.videos?.map(f => `/uploads/${f.filename}`) || [];
+router.post(
+  '/products',
+  upload.fields([
+    { name: 'images', maxCount: 10 },
+    { name: 'videos', maxCount: 5 }
+  ]),
+  async (req, res) => {
+    try {
+      const { name, description, price, category_id } = req.body;
 
-    const product = await Product.create({
-      name,
-      description,
-      price: parseFloat(price),
-      category_id: parseInt(category_id),
-      images,
-      videos,
-      status: 'pending'
-    });
+      if (!name || !price || !category_id) {
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
+      }
 
-    res.status(201).json({ success: true, message: 'Product created', data: product });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Error creating product', error: err.message });
+      const images = req.files?.images?.map(f => `/uploads/${f.filename}`) || [];
+      const videos = req.files?.videos?.map(f => `/uploads/${f.filename}`) || [];
+
+      const product = await Product.create({
+        name,
+        description,
+        price: parseFloat(price),
+        category_id: parseInt(category_id),
+        images,
+        videos,
+        status: 'pending'
+      });
+
+      res.status(201).json({ success: true, message: 'Product created', data: product });
+    } catch (err) {
+      res.status(500).json({ success: false, message: 'Error creating product', error: err.message });
+    }
   }
-});
+);
 
-// ✅ Update product
-router.put('/products/:id', upload.fields([
-  { name: 'images', maxCount: 10 },
-  { name: 'videos', maxCount: 5 }
-]), async (req, res) => {
-  try {
-    const { name, description, price, category_id } = req.body;
-    const product = await Product.findByPk(req.params.id);
-    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+router.put(
+  '/products/:id',
+  upload.fields([
+    { name: 'images', maxCount: 10 },
+    { name: 'videos', maxCount: 5 }
+  ]),
+  async (req, res) => {
+    try {
+      const product = await Product.findByPk(req.params.id);
+      if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
 
-    const images = req.files?.images?.map(f => `/uploads/${f.filename}`) || product.images;
-    const videos = req.files?.videos?.map(f => `/uploads/${f.filename}`) || product.videos;
+      const { name, description, price, category_id } = req.body;
 
-    await product.update({
-      name: name || product.name,
-      description: description || product.description,
-      price: price ? parseFloat(price) : product.price,
-      category_id: category_id ? parseInt(category_id) : product.category_id,
-      images,
-      videos,
-      status: 'pending'
-    });
+      const newImages = req.files?.images?.map(f => `/uploads/${f.filename}`);
+      const newVideos = req.files?.videos?.map(f => `/uploads/${f.filename}`);
 
-    res.json({ success: true, message: 'Product updated', data: product });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Error updating product', error: err.message });
+      await product.update({
+        name: name || product.name,
+        description: description || product.description,
+        price: price ? parseFloat(price) : product.price,
+        category_id: category_id ? parseInt(category_id) : product.category_id,
+        images: newImages || product.images,
+        videos: newVideos || product.videos,
+        status: 'pending'
+      });
+
+      res.json({ success: true, message: 'Product updated', data: product });
+    } catch (err) {
+      res.status(500).json({ success: false, message: 'Error updating product', error: err.message });
+    }
   }
-});
+);
 
-// ✅ Approve product — Super Admin only
 router.put('/products/:id/approve', requireSuperAdmin, async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
@@ -184,7 +192,6 @@ router.put('/products/:id/approve', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// ✅ Reject product — Super Admin only
 router.put('/products/:id/reject', requireSuperAdmin, async (req, res) => {
   try {
     const { reason } = req.body;
@@ -198,7 +205,6 @@ router.put('/products/:id/reject', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// ✅ Delete product
 router.delete('/products/:id', async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
@@ -211,7 +217,7 @@ router.delete('/products/:id', async (req, res) => {
   }
 });
 
-// ======================= CATEGORY ROUTES =======================
+// ========================= CATEGORY ROUTES =========================
 
 router.get('/categories', async (req, res) => {
   try {
@@ -225,6 +231,8 @@ router.get('/categories', async (req, res) => {
 router.post('/categories', async (req, res) => {
   try {
     const { name, description } = req.body;
+    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+
     const category = await Category.create({ name, description });
     res.status(201).json({ success: true, message: 'Category created', data: category });
   } catch (err) {
@@ -232,15 +240,16 @@ router.post('/categories', async (req, res) => {
   }
 });
 
-// ======================= ADMIN LOGS =======================
+// ========================= ADMIN LOGS =========================
 
 router.get('/logs', async (req, res) => {
   try {
     const { page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
+
     const logs = await AdminLog.findAndCountAll({
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: +limit,
+      offset: +offset,
       order: [['created_at', 'DESC']]
     });
 
@@ -248,8 +257,8 @@ router.get('/logs', async (req, res) => {
       success: true,
       data: logs.rows,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: +page,
+        limit: +limit,
         total: logs.count,
         pages: Math.ceil(logs.count / limit)
       }
@@ -259,7 +268,7 @@ router.get('/logs', async (req, res) => {
   }
 });
 
-// ======================= DASHBOARD STATS =======================
+// ========================= DASHBOARD STATS =========================
 
 router.get('/dashboard/stats', async (req, res) => {
   try {
@@ -281,20 +290,20 @@ router.get('/dashboard/stats', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Error fetching stats', error: err.message });
+    res.status(500).json({ success: false, message: 'Error fetching dashboard stats', error: err.message });
   }
 });
 
-// ✅ Base route
+// ✅ Welcome route
 router.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Welcome to the Admin API',
-    endpoints: [
+    message: 'Ladicare Admin API',
+    available: [
       '/products',
       '/categories',
       '/dashboard/stats',
-      '/logs',
+      '/logs'
     ]
   });
 });

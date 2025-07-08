@@ -1,6 +1,4 @@
-// ✅ CartContext.tsx
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { useAuth } from './AuthContext';
 
 interface CartItem {
   id: string;
@@ -37,10 +35,13 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
       const existingItem = state.items.find(item => item.id === action.payload.id);
+      const maxStock = action.payload.stock_quantity ?? 99;
+
       if (existingItem) {
+        const newQuantity = Math.min(existingItem.quantity + 1, maxStock);
         const updatedItems = state.items.map(item =>
           item.id === action.payload.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: newQuantity, stock_quantity: maxStock }
             : item
         );
         return {
@@ -50,7 +51,12 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
           itemCount: updatedItems.reduce((count, item) => count + item.quantity, 0),
         };
       } else {
-        const newItems = [...state.items, { ...action.payload, quantity: 1 }];
+        const newItem: CartItem = {
+          ...action.payload,
+          quantity: 1,
+          stock_quantity: action.payload.stock_quantity ?? 99,
+        };
+        const newItems = [...state.items, newItem];
         return {
           ...state,
           items: newItems,
@@ -61,14 +67,14 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     }
 
     case 'UPDATE_QUANTITY': {
-      if (action.payload.quantity <= 0) {
-        return cartReducer(state, { type: 'REMOVE_ITEM', payload: action.payload.id });
-      }
-      const updatedItems = state.items.map(item =>
-        item.id === action.payload.id
-          ? { ...item, quantity: action.payload.quantity }
-          : item
-      );
+      const updatedItems = state.items.map(item => {
+        if (item.id === action.payload.id) {
+          const maxStock = item.stock_quantity ?? 99;
+          const qty = Math.max(1, Math.min(action.payload.quantity, maxStock));
+          return { ...item, quantity: qty };
+        }
+        return item;
+      });
       return {
         ...state,
         items: updatedItems,
@@ -95,10 +101,15 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       };
 
     case 'LOAD_CART': {
+      // Sanitize against over-quantity in localStorage
+      const cleaned = action.payload.map(item => ({
+        ...item,
+        quantity: Math.min(item.quantity, item.stock_quantity ?? 99),
+      }));
       return {
-        items: action.payload,
-        total: action.payload.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        itemCount: action.payload.reduce((count, item) => count + item.quantity, 0),
+        items: cleaned,
+        total: cleaned.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        itemCount: cleaned.reduce((count, item) => count + item.quantity, 0),
       };
     }
 
@@ -113,8 +124,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     total: 0,
     itemCount: 0,
   });
-
-  const { user, openModal } = useAuth();
 
   useEffect(() => {
     const savedCart = localStorage.getItem('ladicare-cart');
@@ -133,22 +142,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items]);
 
   const addItem = (item: Omit<CartItem, 'quantity'>) => {
-    if (!user) return openModal();
     dispatch({ type: 'ADD_ITEM', payload: item });
   };
 
   const removeItem = (id: string) => {
-    if (!user) return openModal();
     dispatch({ type: 'REMOVE_ITEM', payload: id });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
-    if (!user) return openModal();
     dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
   };
 
   const clearCart = () => {
-    if (!user) return openModal();
     dispatch({ type: 'CLEAR_CART' });
   };
 

@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
+import { useAuth } from '@/pages/AuthContext';
 
-const AuthModal = ({ onClose }: { onClose: () => void }) => {
+interface AuthModalProps {
+  onClose: () => void;
+}
+
+const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const validateForm = () => {
+  const validateForm = (): string | null => {
     if (!form.email.trim() || !form.password.trim()) {
       return 'Email and password are required.';
     }
@@ -25,53 +35,62 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
     e.preventDefault();
     setError('');
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    const validationMessage = validateForm();
+    if (validationMessage) {
+      setError(validationMessage);
       return;
     }
 
+    const payload = isLogin
+      ? { email: form.email.trim(), password: form.password }
+      : { name: form.name.trim(), email: form.email.trim(), password: form.password };
+
     try {
       setLoading(true);
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin
-        ? { email: form.email.trim(), password: form.password }
-        : {
-            name: form.name.trim(),
-            email: form.email.trim(),
-            password: form.password,
-          };
+      const response = isLogin
+        ? await api.login(payload)
+        : await api.register(payload);
 
-      const res = await api.post(endpoint, payload);
-      const { token } = res.data;
+      const { token } = response;
 
-      localStorage.setItem('token', token);
-      onClose();
-      window.location.reload(); // Optional: force refresh
+      if (!token) throw new Error('Invalid response format');
+
+      login(token);      // ✅ update AuthContext
+      onClose();         // ✅ close modal
+      navigate('/admin'); // ✅ redirect
+
     } catch (err: any) {
-      console.error('Auth error:', err);
-      setError(
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        'Something went wrong. Please try again.'
-      );
+      let message = 'Something went wrong. Please try again.';
+
+      if (err.response) {
+        message = err.response.data?.error || err.response.data?.message || `Server error: ${err.response.status}`;
+      } else if (err.request) {
+        message = 'No response from server. Please check your connection.';
+      } else {
+        message = err.message || 'Request failed to process.';
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-black relative">
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4">
+      <div className="bg-white text-black rounded-lg shadow-xl w-full max-w-md p-6 relative animate-fade-in-scale">
         <button
+          aria-label="Close auth modal"
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-500 hover:text-black text-xl"
+          className="absolute top-2 right-3 text-2xl text-gray-500 hover:text-black"
         >
           &times;
         </button>
-        <h2 className="text-2xl font-bold mb-4">
-          {isLogin ? 'Login' : 'Create Account'}
+
+        <h2 className="text-2xl font-bold mb-6 text-center">
+          {isLogin ? 'Login to Your Account' : 'Create an Account'}
         </h2>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <input
@@ -80,7 +99,7 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
               placeholder="Your Name"
               value={form.name}
               onChange={handleChange}
-              className="w-full p-2 border rounded"
+              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             />
           )}
@@ -90,7 +109,7 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
             placeholder="Email"
             value={form.email}
             onChange={handleChange}
-            className="w-full p-2 border rounded"
+            className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
           />
           <input
@@ -99,22 +118,25 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
             placeholder="Password"
             value={form.password}
             onChange={handleChange}
-            className="w-full p-2 border rounded"
+            className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
           />
+
           {error && <p className="text-red-500 text-sm">{error}</p>}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+            className="w-full bg-purple-600 text-white py-3 rounded font-semibold hover:bg-purple-700 disabled:opacity-50"
           >
             {loading ? 'Processing...' : isLogin ? 'Login' : 'Sign Up'}
           </button>
         </form>
-        <p className="text-sm text-center mt-4">
+
+        <p className="text-sm text-center mt-5">
           {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => setIsLogin(prev => !prev)}
             className="text-purple-600 hover:underline"
           >
             {isLogin ? 'Sign Up' : 'Login'}

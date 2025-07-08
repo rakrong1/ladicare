@@ -1,12 +1,10 @@
 // backend/routes/superAdminRoutes.js
 import express from 'express';
-import { verifyToken } from '../src/middleware/authMiddleware.js';
 import requireSuperAdmin from '../src/middleware/requireSuperAdmin.js';
 
 const router = express.Router();
 
 // Protect all routes: must be authenticated and super admin
-router.use(verifyToken);
 router.use(requireSuperAdmin);
 
 // Example route: Get list of all users

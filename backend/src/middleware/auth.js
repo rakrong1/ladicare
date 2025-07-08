@@ -4,13 +4,13 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../../db/index.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_FALLBACK_SECRET';
 
-// ✅ Verify token and attach user to request
+// ✅ Middleware: Verify JWT and attach user to `req.user`
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Unauthorized: No token provided' });
   }
 
@@ -26,39 +26,43 @@ export const requireAuth = async (req, res, next) => {
 
     req.user = user;
 
-    // Optional debug logging for development
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`[AUTH] Authenticated ${user.email} as ${user.role}`);
+      console.log(`[AUTH ✅] ${user.email} authenticated as ${user.role}`);
     }
 
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Unauthorized: Token expired' });
-    }
-    if (err.name === 'JsonWebTokenError') {
-      return res.status(403).json({ message: 'Unauthorized: Invalid token' });
+    const msg =
+      err.name === 'TokenExpiredError'
+        ? 'Unauthorized: Token expired'
+        : err.name === 'JsonWebTokenError'
+        ? 'Unauthorized: Invalid token'
+        : 'Server error during token validation';
+
+    const code = ['TokenExpiredError', 'JsonWebTokenError'].includes(err.name) ? 401 : 500;
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[AUTH ERROR]', err);
     }
 
-    console.error('[AUTH ERROR]:', err);
-    return res.status(500).json({ message: 'Server error during token validation' });
+    return res.status(code).json({ message: msg });
   }
 };
 
-// ✅ Require a specific role
+// ✅ Middleware: Require a single role (e.g., 'admin')
 export const requireRole = (role) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized: No user found' });
     }
     if (req.user.role !== role) {
-      return res.status(403).json({ message: `Forbidden: Requires ${role} role` });
+      return res.status(403).json({ message: `Forbidden: Requires '${role}' role` });
     }
     next();
   };
 };
 
-// ✅ Require one of multiple roles
+// ✅ Middleware: Require one of multiple roles (e.g., 'admin', 'superAdmin')
 export const requireRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -66,7 +70,7 @@ export const requireRoles = (...roles) => {
     }
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
-        message: `Forbidden: Requires one of roles: ${roles.join(', ')}`,
+        message: `Forbidden: Requires one of these roles: ${roles.join(', ')}`,
       });
     }
     next();

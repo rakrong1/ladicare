@@ -1,14 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Star, ShoppingCart, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Star,
+  ShoppingCart,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useCart } from './CartContext';
 import api from '../services/api';
 import { Product } from '../types/product';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-const ProductDetails = () => {
+const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addItem, state } = useCart();
@@ -25,16 +31,35 @@ const ProductDetails = () => {
 
   const product: Product | undefined = data?.data;
 
-  const getImageUrl = (img?: string) =>
-    img ? `${BACKEND_URL}/uploads/${img}` : '/placeholder.png';
+  const getImageUrl = useCallback(
+    (img?: string) =>
+      img ? `${BACKEND_URL}/uploads/${img}` : '/placeholder.png',
+    []
+  );
 
-  // 🧠 Live Stock Check
+  // 🧠 Update stock based on cart
   useEffect(() => {
     if (product) {
-      const cartQty = state.items.find(i => i.id === product.id)?.quantity || 0;
-      setLiveStock(Math.max(0, (product.stock_quantity || 0) - cartQty));
+      const cartQty = state.items.find((i) => i.id === product.id)?.quantity || 0;
+      const stock = product.stock_quantity ?? product.stock ?? 0;
+      setLiveStock(Math.max(0, stock - cartQty));
     }
   }, [state.items, product]);
+
+  const handleAddToCart = () => {
+    if (!product || liveStock < quantity) return;
+
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: getImageUrl(product.thumbnail || product.images?.[0]),
+    });
+
+    setQuantity(1);
+  };
+
+  const canAdd = quantity <= liveStock;
 
   if (isLoading) {
     return <div className="pt-32 text-center text-white">Loading product...</div>;
@@ -58,19 +83,6 @@ const ProductDetails = () => {
     );
   }
 
-  const handleAddToCart = () => {
-    if (liveStock < quantity) return;
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: getImageUrl(product.thumbnail || product.images?.[0]),
-    });
-    setQuantity(1);
-  };
-
-  const canAdd = quantity <= liveStock;
-
   return (
     <div className="pt-24 pb-12 px-4">
       <div className="max-w-7xl mx-auto">
@@ -86,57 +98,61 @@ const ProductDetails = () => {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Images */}
+          {/* Product Images */}
           <div className="animate-slide-in-left">
-            <div className="glass-card p-6 mb-6">
-              <div className="relative">
-                <img
-                  src={getImageUrl(product.images?.[selectedImage] || product.thumbnail)}
-                  alt={product.name}
-                  className="w-full h-96 object-cover rounded-2xl"
-                />
-                {product.images?.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => setSelectedImage(prev => (prev > 0 ? prev - 1 : product.images!.length - 1))}
-                      className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                    <button
-                      onClick={() => setSelectedImage(prev => (prev + 1) % product.images!.length)}
-                      className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                  </>
-                )}
-              </div>
-
+            <div className="glass-card p-6 mb-6 relative">
+              <img
+                src={getImageUrl(product.images?.[selectedImage] || product.thumbnail)}
+                alt={product.name}
+                className="w-full h-96 object-cover rounded-2xl"
+              />
               {product.images?.length > 1 && (
-                <div className="flex gap-3 mt-4 overflow-x-auto">
-                  {product.images.map((img, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImage(index)}
-                      className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                        selectedImage === index
-                          ? 'border-purple-400'
-                          : 'border-white/20 hover:border-white/40'
-                      }`}
-                    >
-                      <img src={getImageUrl(img)} alt={`Image ${index + 1}`} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <button
+                    onClick={() =>
+                      setSelectedImage((prev) =>
+                        prev > 0 ? prev - 1 : product.images!.length - 1
+                      )
+                    }
+                    className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setSelectedImage((prev) => (prev + 1) % product.images!.length)
+                    }
+                    className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </>
               )}
             </div>
+
+            {product.images?.length > 1 && (
+              <div className="flex gap-3 mt-4 overflow-x-auto">
+                {product.images.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedImage === index
+                        ? 'border-purple-400'
+                        : 'border-white/20 hover:border-white/40'
+                    }`}
+                  >
+                    <img src={getImageUrl(img)} alt={`Image ${index + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
           <div className="animate-slide-in-right">
             <div className="glass-card p-8 mb-6">
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-white mb-4">
+              <h1 className="font-display text-4xl font-bold text-white mb-4">
                 {product.name}
               </h1>
 
@@ -153,7 +169,7 @@ const ProductDetails = () => {
                   />
                 ))}
                 <span className="text-white/80 ml-2">
-                  {product.rating || 0} ({product.reviewCount || 0} reviews)
+                  {product.rating?.toFixed(1) || '0.0'} ({product.reviewCount || 0})
                 </span>
               </div>
 
@@ -162,14 +178,17 @@ const ProductDetails = () => {
                 <span className="text-4xl font-bold text-white">
                   GHS {Number(product.price).toFixed(2)}
                 </span>
-                {product.original_price && Number(product.original_price) > Number(product.price) && (
+                {product.original_price && Number(product.original_price) > product.price && (
                   <span className="text-white/50 line-through ml-4 text-xl">
                     GHS {Number(product.original_price).toFixed(2)}
                   </span>
                 )}
               </div>
 
-              <p className="text-white/80 text-lg mb-6 leading-relaxed">{product.description}</p>
+              {/* Description */}
+              <p className="text-white/80 text-lg mb-6 leading-relaxed">
+                {product.description}
+              </p>
 
               {/* Tags */}
               {!!product.tags?.length && (
@@ -228,10 +247,16 @@ const ProductDetails = () => {
                 </button>
               </div>
 
-              <div className={`flex items-center mb-6 ${
-                liveStock <= 0 ? 'text-red-400' :
-                liveStock <= 3 ? 'text-yellow-400' : 'text-green-400'
-              }`}>
+              {/* Stock Notice */}
+              <div
+                className={`flex items-center mb-6 ${
+                  liveStock <= 0
+                    ? 'text-red-400'
+                    : liveStock <= 3
+                    ? 'text-yellow-400'
+                    : 'text-green-400'
+                }`}
+              >
                 <Check className="w-5 h-5 mr-2" />
                 <span>
                   {liveStock <= 0
@@ -242,19 +267,18 @@ const ProductDetails = () => {
                 </span>
               </div>
 
-
-              {/* Info */}
+              {/* Meta */}
               <div className="border-t border-white/20 pt-6 space-y-3 text-sm text-white/70">
                 <p>✅ Free shipping on orders over GHS 200</p>
                 <p>🔄 30-day return policy</p>
                 <p>🔒 Secure payment</p>
-                <p>🚚 Delivery within 1-4 business days</p>
+                <p>🚚 Delivery within 1–4 business days</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Reviews Section – TODO */}
+        {/* 🔧 Future: Reviews */}
       </div>
     </div>
   );

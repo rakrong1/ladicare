@@ -12,7 +12,6 @@ const Home = () => {
   const { visibleProducts, categories, loading } = useProducts();
   const { isAuthenticated } = useAuth();
   const { state: cartState, addItem } = useCart();
-
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const featuredProducts = visibleProducts.filter(p => p.is_featured);
@@ -22,26 +21,31 @@ const Home = () => {
     return item ? item.quantity : 0;
   };
 
-  const handleAddToCart = (product: any) => {
+  const getImageUrl = (product: any) => {
+    if (product.thumbnail) return `${BACKEND_URL}/uploads/${product.thumbnail}`;
+    if (product.images?.length) return `${BACKEND_URL}/uploads/${product.images[0]}`;
+    return '/placeholder.png';
+  };
+
+  const handleAuthCheck = (callback: () => void) => {
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
     }
+    callback();
+  };
 
-    const currentQtyInCart = getProductQuantityInCart(product.id);
-    if (product.stock_quantity <= currentQtyInCart) return;
+  const handleAddToCart = (product: any) => {
+    const currentQty = getProductQuantityInCart(product.id);
+    if (product.stock_quantity <= currentQty) return;
 
-    const imageUrl = product.thumbnail
-      ? `${BACKEND_URL}/uploads/${product.thumbnail}`
-      : product.images?.[0]
-      ? `${BACKEND_URL}/uploads/${product.images[0]}`
-      : '/placeholder.png';
-
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: imageUrl,
+    handleAuthCheck(() => {
+      addItem({
+        id: product.id,
+        name: product.name,
+        price: Number(product.price),
+        image: getImageUrl(product),
+      });
     });
   };
 
@@ -131,12 +135,7 @@ const Home = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 stagger-children">
               {featuredProducts.map(product => {
-                const imageUrl = product.thumbnail
-                  ? `${BACKEND_URL}/uploads/${product.thumbnail}`
-                  : product.images?.[0]
-                  ? `${BACKEND_URL}/uploads/${product.images[0]}`
-                  : '/placeholder.png';
-
+                const imageUrl = getImageUrl(product);
                 const inCartQty = getProductQuantityInCart(product.id);
                 const remainingQty = (product.stock_quantity || 0) - inCartQty;
                 const isOutOfStock = remainingQty <= 0;
@@ -187,7 +186,9 @@ const Home = () => {
                       <div className="mb-2">
                         <span className="text-2xl font-bold text-white">GHS {Number(product.price).toFixed(2)}</span>
                         {product.original_price && Number(product.original_price) > Number(product.price) && (
-                          <span className="text-white/50 line-through text-sm ml-2">GHS {Number(product.original_price).toFixed(2)}</span>
+                          <span className="text-white/50 line-through text-sm ml-2">
+                            GHS {Number(product.original_price).toFixed(2)}
+                          </span>
                         )}
                       </div>
                       <div className={`text-sm mb-4 ${stockColor}`}>{stockText}</div>
@@ -221,7 +222,9 @@ const Home = () => {
       <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">Why Choose Ladicare?</h2>
+            <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">
+              Why Choose Ladicare?
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-children">
             {[

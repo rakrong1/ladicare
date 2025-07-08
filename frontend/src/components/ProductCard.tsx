@@ -2,7 +2,25 @@ import React from 'react';
 import { Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export const ProductCard = ({ product, stock, onAdd }) => {
+interface Product {
+  id: number | string;
+  name: string;
+  description: string;
+  price: number;
+  original_price?: number;
+  thumbnail?: string;
+  images?: string[];
+  rating?: number;
+  reviewCount?: number;
+}
+
+interface ProductCardProps {
+  product: Product;
+  stock: number;
+  onAdd: (product: Product) => void;
+}
+
+export const ProductCard: React.FC<ProductCardProps> = ({ product, stock, onAdd }) => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
   const imageUrl = product.thumbnail
@@ -26,7 +44,6 @@ export const ProductCard = ({ product, stock, onAdd }) => {
 
   return (
     <div className="glass-card overflow-hidden hover-lift product-card-tilt group relative">
-      {/* ✅ Link wraps all content except the add-to-cart */}
       <Link to={`/products/${product.id}`} className="block">
         <div className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
           <img
@@ -75,7 +92,6 @@ export const ProductCard = ({ product, stock, onAdd }) => {
         </div>
       </Link>
 
-      {/* ✅ Add to Cart stays outside Link */}
       <div className="px-6 pb-6">
         <button
           className="glass-button w-full py-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"

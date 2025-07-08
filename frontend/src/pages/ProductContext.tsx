@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import api from '@/services/api';
 
+// ---------- Interfaces ----------
 export interface Product {
   id: string;
   name: string;
@@ -12,7 +19,7 @@ export interface Product {
   images: string[];
   videos?: string[];
   stock_quantity?: number;
-  stock?: number; // fallback for older data
+  stock?: number;
   status: 'pending' | 'approved' | 'rejected' | 'active' | 'inactive';
   rating?: number;
   reviewCount?: number;
@@ -34,6 +41,7 @@ export interface Category {
   productCount?: number;
 }
 
+// ---------- Context Type ----------
 interface ProductContextType {
   products: Product[];
   visibleProducts: Product[];
@@ -49,9 +57,12 @@ interface ProductContextType {
   deleteProduct: (id: string) => void;
 }
 
+// ---------- Context Setup ----------
 const ProductContext = createContext<ProductContextType | null>(null);
 
-export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,9 +99,9 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const visibleProducts = useMemo(() => {
-    return Array.isArray(products)
-      ? products.filter((p) => p.status === 'approved' || p.status === 'active')
-      : [];
+    return products.filter(
+      (p) => p.status === 'approved' || p.status === 'active'
+    );
   }, [products]);
 
   const getProductById = (id: string) => products.find((p) => p.id === id);
@@ -99,9 +110,10 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
     visibleProducts.filter((p) => p.category_id === categoryId);
 
   const searchProducts = (query: string) =>
-    visibleProducts.filter((p) =>
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.description.toLowerCase().includes(query.toLowerCase())
+    visibleProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query.toLowerCase()) ||
+        p.description.toLowerCase().includes(query.toLowerCase())
     );
 
   const addProduct = (product: Omit<Product, 'id' | 'createdAt'>) => {

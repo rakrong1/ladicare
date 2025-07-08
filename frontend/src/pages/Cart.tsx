@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { useCart } from './CartContext';
-import { useAuth } from './AuthContext'; // ✅ IMPORT useAuth
 import api from '@/services/api';
 
 const Cart = () => {
   const { state, removeItem, updateQuantity, clearCart } = useCart();
-  const { user, openModal } = useAuth(); // ✅ HOOK
   const [liveStock, setLiveStock] = useState<{ [id: string]: number }>({});
-  const navigate = useNavigate();
 
+  // 🔁 Fetch stock from backend
   useEffect(() => {
     const fetchLiveStock = async () => {
       try {
@@ -21,6 +19,7 @@ const Cart = () => {
         });
         setLiveStock(stockMap);
 
+        // 🧠 Adjust cart quantities if above live stock
         state.items.forEach((item) => {
           const available = stockMap[item.id] ?? 0;
           if (item.quantity > available) {
@@ -36,30 +35,11 @@ const Cart = () => {
   }, [state.items, updateQuantity]);
 
   const handleQuantityChange = (id: string, newQuantity: number) => {
-    if (!user) return openModal(); // ✅ Block if not logged in
     if (newQuantity < 1) {
       removeItem(id);
     } else {
       updateQuantity(id, newQuantity);
     }
-  };
-
-  const handleRemove = (id: string) => {
-    if (!user) return openModal(); // ✅ Auth required
-    removeItem(id);
-  };
-
-  const handleClearCart = () => {
-    if (!user) return openModal(); // ✅ Auth required
-    clearCart();
-  };
-
-  const handleCheckout = () => {
-    if (!user) {
-      openModal(); // ✅ Require login
-      return;
-    }
-    navigate('/checkout');
   };
 
   if (state.items.length === 0) {
@@ -96,11 +76,12 @@ const Cart = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Cart Items */}
           <div className="lg:col-span-2">
             <div className="glass-card p-6 animate-fade-in-scale">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold text-white">Cart Items ({state.itemCount})</h2>
-                <button onClick={handleClearCart} className="glass-button px-4 py-2 text-sm hover-lift cursor-pointer">
+                <button onClick={clearCart} className="glass-button px-4 py-2 text-sm hover-lift cursor-pointer">
                   Clear All
                 </button>
               </div>
@@ -112,10 +93,14 @@ const Cart = () => {
                   const isOutOfStock = maxQty === 0;
 
                   return (
-                    <div key={item.id} className="glass-card p-4 flex items-center gap-4 hover-lift cursor-default">
-                      <Link to={`/products/${item.id}`} className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-purple-200 to-pink-200 hover:ring-2 ring-purple-400 transition-all">
+                    <div
+                      key={item.id}
+                      className="glass-card p-4 flex items-center gap-4 hover-lift cursor-default"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-purple-200 to-pink-200">
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                      </Link>
+                      </div>
 
                       <div className="flex-1">
                         <h3 className="font-semibold text-white mb-1">{item.name}</h3>
@@ -153,7 +138,7 @@ const Cart = () => {
                       </div>
 
                       <button
-                        onClick={() => handleRemove(item.id)}
+                        onClick={() => removeItem(item.id)}
                         className="glass-button p-2 hover-lift text-red-400 hover:text-red-300 cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -165,7 +150,7 @@ const Cart = () => {
             </div>
           </div>
 
-          {/* Summary */}
+          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="glass-card p-6 animate-slide-in-right sticky top-24">
               <h2 className="text-2xl font-semibold text-white mb-6">Order Summary</h2>
@@ -191,13 +176,16 @@ const Cart = () => {
               </div>
 
               <div className="space-y-3">
-                <button
-                  onClick={handleCheckout}
+                <Link
+                  to="/checkout"
                   className="glass-button-primary w-full py-4 text-center font-semibold hover-lift block cursor-pointer"
                 >
                   Proceed to Checkout
-                </button>
-                <Link to="/products" className="glass-button w-full py-3 text-center hover-lift block cursor-pointer">
+                </Link>
+                <Link
+                  to="/products"
+                  className="glass-button w-full py-3 text-center hover-lift block cursor-pointer"
+                >
                   Continue Shopping
                 </Link>
               </div>

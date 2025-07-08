@@ -100,6 +100,20 @@ const Product = sequelize.define('Product', {
   },
 });
 
+const CartItem = sequelize.define('CartItem', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  session_id: { type: DataTypes.STRING, allowNull: true },
+  customer_id: { type: DataTypes.INTEGER, allowNull: true },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  variant_id: { type: DataTypes.INTEGER, allowNull: true },
+  quantity: { type: DataTypes.INTEGER, allowNull: false },
+  price: { type: DataTypes.FLOAT, allowNull: false },
+}, {
+  tableName: 'cart_items',
+  timestamps: true,
+  underscored: true,
+});
+
 const AdminLog = sequelize.define('AdminLog', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   action: { type: DataTypes.STRING(100), allowNull: false },
@@ -243,5 +257,6 @@ export {
   Review,
   FooterContent,
   User,
-  ProductVariant
+  ProductVariant,
+  CartItem
 };

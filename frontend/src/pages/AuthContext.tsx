@@ -1,84 +1,140 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
 import { jwtDecode } from 'jwt-decode';
 import api from '@/services/api';
 import AuthModal from '@/components/auth/AuthModal';
+import { useNavigate } from 'react-router-dom';
 
-// Define user role type
 export type Role = 'superAdmin' | 'admin' | 'customer';
 
-// Define user object shape
 export interface User {
   id: number;
   email: string;
   name: string;
-  role: 'superAdmin' | 'admin' | 'customer';
+  role: Role;
   iat?: number;
   exp?: number;
 }
 
-// Define the context type
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  loading: boolean;
   login: (token: string) => void;
   logout: () => void;
   openModal: () => void;
   closeModal: () => void;
 }
 
-// Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Create provider component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const isAuthenticated = !!user;
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const decoded: User = jwtDecode(token);
+      return decoded.exp ? Date.now() >= decoded.exp * 1000 : true;
+    } catch {
+      return true;
+    }
+  };
+
+  const initializeAuth = () => {
+    const token = localStorage.getItem('token');
+    if (!token || isTokenExpired(token)) {
+      logout();
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const decoded: User = jwtDecode(token);
+      setUser(decoded);
+      setIsAuthenticated(true);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } catch (err) {
+      console.error('Failed to decode token:', err);
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const decoded: User = jwtDecode(token);
-        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-          logout();
-        } else {
-          setUser(decoded);
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        }
-      } catch (err) {
-        console.error('Invalid token:', err);
-        logout();
-      }
-    }
+    initializeAuth();
   }, []);
 
   const login = (token: string) => {
-    localStorage.setItem('token', token);
-    const decoded: User = jwtDecode(token);
-    setUser(decoded);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setShowModal(false);
+    if (!token || isTokenExpired(token)) {
+      console.error('Invalid or expired token on login');
+      return;
+    }
+
+    try {
+      const decoded: User = jwtDecode(token);
+      setUser(decoded);
+      setIsAuthenticated(true);
+      localStorage.setItem('token', token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setShowModal(false);
+
+      // Navigate to admin panel after login
+      navigate('/admin');
+    } catch (err) {
+      console.error('Login failed:', err);
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    delete api.defaults.headers.common['Authorization'];
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token && !isTokenExpired(token)) {
+        try {
+          await api.post('/auth/logout');
+        } catch (err) {
+          console.warn('Logout request failed but continuing cleanup:', err);
+        }
+      }
+    } finally {
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   const openModal = () => setShowModal(true);
   const closeModal = () => setShowModal(false);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, openModal, closeModal }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        loading,
+        login,
+        logout,
+        openModal,
+        closeModal,
+      }}
+    >
       {children}
       {showModal && <AuthModal onClose={closeModal} />}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook for accessing auth
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
