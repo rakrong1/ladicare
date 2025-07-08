@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import api from '@/services/api';
+import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from './AuthContext';
 
 interface CartItem {
   id: string;
@@ -31,6 +34,7 @@ const CartContext = createContext<{
   clearCart: () => void;
 } | null>(null);
 
+// 🔁 Reducer logic
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
@@ -101,7 +105,6 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       };
 
     case 'LOAD_CART': {
-      // Sanitize against over-quantity in localStorage
       const cleaned = action.payload.map(item => ({
         ...item,
         quantity: Math.min(item.quantity, item.stock_quantity ?? 99),
@@ -118,6 +121,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   }
 };
 
+// 🛒 Provider
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, {
     items: [],
@@ -125,22 +129,62 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     itemCount: 0,
   });
 
+  const { user } = useAuth();
+  const lastSyncedRef = useRef<string | null>(null);
+
+  // 💾 Load cart from storage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem('ladicare-cart');
-    if (savedCart) {
+    const storedCart = localStorage.getItem('ladicare-cart');
+    if (storedCart) {
       try {
-        const cartItems = JSON.parse(savedCart);
-        dispatch({ type: 'LOAD_CART', payload: cartItems });
-      } catch (error) {
-        console.error('Error loading cart from localStorage:', error);
+        const parsed = JSON.parse(storedCart);
+        dispatch({ type: 'LOAD_CART', payload: parsed });
+      } catch (err) {
+        console.error('❌ Failed to load cart from localStorage:', err);
       }
+    }
+
+    // Ensure session ID exists
+    if (!localStorage.getItem('ladicare-session')) {
+      localStorage.setItem('ladicare-session', uuidv4());
     }
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('ladicare-cart', JSON.stringify(state.items));
+  // 🔁 Sync cart to backend (debounced)
+  const syncCartToBackend = useCallback(async () => {
+    try {
+      const sessionId = localStorage.getItem('ladicare-session');
+      if (!sessionId) return;
+
+      const serialized = JSON.stringify(state.items);
+      if (serialized === lastSyncedRef.current) return;
+
+      lastSyncedRef.current = serialized;
+
+      await api.post('/cart/sync', {
+        sessionId,
+        items: state.items.map(item => ({
+          id: item.id,
+          variant_id: null,
+          quantity: item.quantity,
+        })),
+      });
+    } catch (err) {
+      console.error('🛒 Failed to sync cart with backend:', err);
+    }
   }, [state.items]);
 
+  // ⏱ Debounce localStorage and backend sync
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      localStorage.setItem('ladicare-cart', JSON.stringify(state.items));
+      syncCartToBackend();
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [state.items, syncCartToBackend]);
+
+  // Expose functions
   const addItem = (item: Omit<CartItem, 'quantity'>) => {
     dispatch({ type: 'ADD_ITEM', payload: item });
   };
@@ -158,19 +202,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <CartContext.Provider value={{
-      state,
-      dispatch,
-      addItem,
-      removeItem,
-      updateQuantity,
-      clearCart,
-    }}>
+    <CartContext.Provider value={{ state, dispatch, addItem, removeItem, updateQuantity, clearCart }}>
       {children}
     </CartContext.Provider>
   );
 };
 
+// 🧠 Custom hook
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {

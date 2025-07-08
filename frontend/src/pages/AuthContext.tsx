@@ -90,7 +90,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setShowModal(false);
 
       // Navigate to admin panel after login
+      if (user?.role === 'customer' ){
+      navigate('/');
+    } else if (user?.role === 'admin' || user?.role === 'superAdmin') {
       navigate('/admin');
+    }
     } catch (err) {
       console.error('Login failed:', err);
     }

@@ -19,6 +19,7 @@ import apiRoutes from '../routes/api.js';
 import categoryRoutes from '../routes/categoryRoutes.js';
 import productRoutes from '../routes/productRoutes.js';
 import authRoutes from '../routes/authRoutes.js';
+import cartRoutes from '../routes/cartRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -74,6 +75,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api', paystackRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/cart', cartRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

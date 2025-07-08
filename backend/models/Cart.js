@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable import/prefer-default-export */
 // backend/models/Cart.js
 import { CartItem, Product } from '../db/index.js'; // CartItem = Sequelize model for cart_items
@@ -11,15 +12,21 @@ export class Cart {
 
   // Load cart items from DB into this.items
   async loadItems() {
-    const where = this.customerId
-      ? { customer_id: this.customerId }
-      : { session_id: this.sessionId };
-
-    this.items = await CartItem.findAll({
+    const where = this.customerId ? { customer_id: this.customerId } : { session_id: this.sessionId };
+    const items = await CartItem.findAll({
       where,
-      include: [{ model: Product, as: 'product' }]
+      include: [{ model: Product, as: 'product' }],
+      order: [['created_at', 'DESC']],
     });
-  }
+
+  return items.map(item => ({
+    id: item.product_id,
+    variant_id: item.variant_id,
+    quantity: item.quantity,
+    price: item.price,
+    product: item.product, // optional for frontend
+  }));
+}
 
   // Add or update cart item
   async addItem(productId, variantId = null, quantity = 1) {

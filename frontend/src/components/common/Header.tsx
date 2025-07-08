@@ -34,10 +34,10 @@ const Header = () => {
 
   const handleAdminAccess = () => {
     if (!isAuthenticated) return openModal();
-    if (user?.role === 'admin' || user?.role === 'superAdmin') {
-      navigate('/admin');
-    } else {
+    if (user?.role === 'customer' ){
       navigate('/');
+    } else if (user?.role === 'admin' || user?.role === 'superAdmin') {
+      navigate('/admin');
     }
   };
 
@@ -114,41 +114,12 @@ const Header = () => {
             <button
               onClick={handleAdminAccess}
               className="glass-button p-2 hover-lift"
-              title="Admin Panel"
+              title="User Menu"
             >
-              <Shield className="w-5 h-5" />
+              <User className="w-5 h-5" />
             </button>
 
-            {/* User menu or login button */}
-            {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={toggleUserMenu}
-                  className="glass-button p-2 hover-lift"
-                  title="User Menu"
-                >
-                  <User className="w-5 h-5" />
-                </button>
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-40 glass-card p-3 animate-fade-in-scale shadow-lg z-50">
-                    <p className="text-white mb-2">{user.name}</p>
-                    <button
-                      onClick={handleLogout}
-                      className="glass-button w-full flex items-center gap-2 text-red-300 hover:text-red-400"
-                    >
-                      <LogOut className="w-4 h-4" /> Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={openModal}
-                className="glass-button p-2 hover-lift"
-              >
-                <User className="w-5 h-5" />
-              </button>
-            )}
+          
 
             {/* Mobile menu toggle */}
             <button

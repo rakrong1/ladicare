@@ -236,6 +236,10 @@ Category.hasMany(Product, { foreignKey: 'category_id', as: 'products' });
 Order.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
 
+CartItem.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
+Product.hasMany(CartItem, { foreignKey: 'product_id', as: 'cartItems' });
+
+
 const connectDatabase = async () => {
   await sequelize.authenticate();
   console.log('Database connected ✅');

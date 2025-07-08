@@ -8,37 +8,45 @@ const Cart = () => {
   const { state, removeItem, updateQuantity, clearCart } = useCart();
   const [liveStock, setLiveStock] = useState<{ [id: string]: number }>({});
 
-  // 🔁 Fetch stock from backend
+  // ✅ Fetch live stock from backend only when cart length changes
   useEffect(() => {
+    if (state.items.length === 0) return;
+
     const fetchLiveStock = async () => {
       try {
         const response = await api.get('/products');
-        const stockMap = {};
-        response.forEach((product) => {
+        const products = response.data?.data || response.data || [];
+
+        const stockMap: Record<string, number> = {};
+        products.forEach((product: any) => {
           stockMap[product.id] = product.stock_quantity ?? 0;
         });
         setLiveStock(stockMap);
 
-        // 🧠 Adjust cart quantities if above live stock
+        // ✅ Adjust quantities only if out of sync
         state.items.forEach((item) => {
           const available = stockMap[item.id] ?? 0;
-          if (item.quantity > available) {
-            updateQuantity(item.id, available);
+          if (available === 0 && item.quantity > 0) {
+            updateQuantity(item.id, 0); // mark out of stock
+          } else if (item.quantity > available) {
+            updateQuantity(item.id, available); // reduce to available
           }
         });
       } catch (err) {
-        console.error('Failed to fetch stock:', err);
+        console.error('🛒 Failed to sync cart with backend:', err);
       }
     };
 
-    fetchLiveStock();
-  }, [state.items, updateQuantity]);
+    const debounce = setTimeout(fetchLiveStock, 300);
+    return () => clearTimeout(debounce);
+  }, [state.items.length]); // 🧠 safer: only triggers when cart count changes
 
   const handleQuantityChange = (id: string, newQuantity: number) => {
     if (newQuantity < 1) {
       removeItem(id);
     } else {
-      updateQuantity(id, newQuantity);
+      const max = liveStock[id] ?? 99;
+      updateQuantity(id, Math.min(newQuantity, max));
     }
   };
 
@@ -50,7 +58,7 @@ const Cart = () => {
             <div className="glass-card p-12 max-w-md mx-auto animate-fade-in-scale">
               <ShoppingCart className="w-20 h-20 mx-auto mb-6 text-white/40" />
               <h2 className="text-3xl font-bold text-white mb-4">Your cart is empty</h2>
-              <p className="text-white/70 mb-8">Looks like you haven't added any products to your cart yet.</p>
+              <p className="text-white/70 mb-8">Looks like you haven't added any products yet.</p>
               <Link
                 to="/products"
                 className="glass-button-primary px-8 py-3 inline-flex items-center gap-2 hover-lift cursor-pointer"
@@ -88,7 +96,7 @@ const Cart = () => {
 
               <div className="space-y-4">
                 {state.items.map((item, index) => {
-                  const maxQty = liveStock[item.id] ?? 0;
+                  const maxQty = liveStock[item.id] ?? item.stock_quantity ?? 99;
                   const isMax = item.quantity >= maxQty;
                   const isOutOfStock = maxQty === 0;
 
@@ -104,7 +112,9 @@ const Cart = () => {
 
                       <div className="flex-1">
                         <h3 className="font-semibold text-white mb-1">{item.name}</h3>
-                        <p className="text-purple-300 font-medium">GHS {Number(item.price).toFixed(2)}</p>
+                        <p className="text-purple-300 font-medium">
+                          GHS {Number(item.price).toFixed(2)}
+                        </p>
                         {isOutOfStock ? (
                           <p className="text-red-400 text-sm mt-1">Out of Stock</p>
                         ) : isMax ? (
