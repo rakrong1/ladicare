@@ -1,23 +1,12 @@
 import React from 'react';
 import { Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface Product {
-  id: number | string;
-  name: string;
-  description: string;
-  price: number;
-  original_price?: number;
-  thumbnail?: string;
-  images?: string[];
-  rating?: number;
-  reviewCount?: number;
-}
+import type { Product as ProductType } from '@/types/product';
 
 interface ProductCardProps {
-  product: Product;
+  product: ProductType;
   stock: number;
-  onAdd: (product: Product) => void;
+  onAdd: (product: ProductType & { stock_quantity?: number }) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, stock, onAdd }) => {
@@ -30,6 +19,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, stock, onAdd 
     : '/placeholder.png';
 
   const isOutOfStock = stock <= 0;
+
   const stockText = isOutOfStock
     ? 'Out of Stock'
     : stock <= 3
@@ -42,14 +32,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, stock, onAdd 
     ? 'text-yellow-400'
     : 'text-green-400';
 
+  const price = typeof product.price === 'number' && !isNaN(product.price)
+    ? product.price
+    : 0;
+
+  const originalPrice =
+    typeof product.original_price === 'number' &&
+    !isNaN(product.original_price) &&
+    product.original_price > price
+      ? product.original_price
+      : undefined;
+
   return (
-    <div className="glass-card overflow-hidden hover-lift product-card-tilt group relative">
-      <Link to={`/products/${product.id}`} className="block">
-        <div className="aspect-w-16 aspect-h-12 bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
+    <div className="glass-card overflow-hidden hover-lift group relative product-card-tilt">
+      <Link to={`/products/${product.slug || product.id}`} className="block" aria-label={`View ${product.name}`}>
+        <div className="aspect-video bg-gradient-to-br from-purple-200 to-pink-200 rounded-t-2xl overflow-hidden">
           <img
             src={imageUrl}
             alt={product.name}
-            className="w-full h-65 object-cover group-hover:scale-110 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>
         <div className="p-6">
@@ -71,21 +72,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, stock, onAdd 
                 />
               ))}
             </div>
-            <span className="text-white/60 text-sm ml-2">
-              ({product.reviewCount || 0})
-            </span>
+            <span className="text-white/60 text-sm ml-2">({product.reviewCount || 0})</span>
           </div>
 
           <div className="mb-2">
             <span className="text-2xl font-bold text-white">
-              GHS {Number(product.price).toFixed(2)}
+              GHS {price.toFixed(2)}
             </span>
-            {product.original_price &&
-              Number(product.original_price) > Number(product.price) && (
-                <span className="text-white/50 line-through text-sm ml-2">
-                  GHS {Number(product.original_price).toFixed(2)}
-                </span>
-              )}
+            {originalPrice && (
+              <span className="text-white/50 line-through text-sm ml-2">
+                GHS {originalPrice.toFixed(2)}
+              </span>
+            )}
           </div>
 
           <div className={`text-sm ${stockColor}`}>{stockText}</div>
@@ -95,8 +93,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, stock, onAdd 
       <div className="px-6 pb-6">
         <button
           className="glass-button w-full py-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => onAdd(product)}
+          onClick={() =>
+            onAdd({
+              ...product,
+              stock_quantity: stock,
+            })
+          }
           disabled={isOutOfStock}
+          aria-label={isOutOfStock ? 'Out of stock' : `Add ${product.name} to cart`}
         >
           {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
         </button>

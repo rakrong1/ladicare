@@ -15,17 +15,18 @@ import { Product } from '../types/product';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const ProductDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>(); // id is actually the slug
   const navigate = useNavigate();
-  const { addItem, state } = useCart();
+  const { upsertItem, state } = useCart();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [liveStock, setLiveStock] = useState<number>(0);
 
+  // Update the query to use getProductBySlug
   const { data, isLoading, isError } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => api.get(`/products/${id}`),
+    queryFn: () => api.getProductBySlug(id),
     enabled: !!id,
   });
 
@@ -49,7 +50,7 @@ const ProductDetails: React.FC = () => {
   const handleAddToCart = () => {
     if (!product || liveStock < quantity) return;
 
-    addItem({
+    upsertItem({
       id: product.id,
       name: product.name,
       price: product.price,

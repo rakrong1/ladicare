@@ -1,5 +1,3 @@
-// ✅ FINAL server.mjs — Role-Aware Auth, Middleware Structure, and Clean Routing
-
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,9 +5,11 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Op } from 'sequelize';
+import rateLimit from 'express-rate-limit';
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUI from 'swagger-ui-express';
 
-import { initializeDatabase, Product, Category } from '../db/index.js';
+import { initializeDatabase } from '../db/index.js';
 
 import footerRoutes from '../routes/footerRoutes.js';
 import contactRoutes from '../routes/contactRoutes.js';
@@ -19,85 +19,104 @@ import apiRoutes from '../routes/api.js';
 import categoryRoutes from '../routes/categoryRoutes.js';
 import productRoutes from '../routes/productRoutes.js';
 import authRoutes from '../routes/authRoutes.js';
-import cartRoutes from '../routes/cartRoutes.js';
+import { router as cartRoutes } from '../routes/cartRoutes.js';
 
-// Load environment variables
+// Load env
 dotenv.config();
 
-// Path helpers
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
+const ENV = process.env.NODE_ENV || 'development';
 
-// Middleware: Body parsers
+// ─── Middleware Setup ────────────────────────────────
+
+// Static files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/public', express.static(path.join(__dirname, '../public')));
+
+// CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:8081'
+];
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+
+app.use(limiter);
+
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Ladicare E-commerce API',
+      version: '1.0.0',
+      description: 'API documentation for Ladicare backend'
+    },
+    servers: [{ url: `http://localhost:${PORT}` }],
+  },
+  apis: [path.join(__dirname, '../routes/*.js')],
+};
+
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
+app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
+
+// Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Security headers
+// Security
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"]
-    }
-  }
-}));
-
-// CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8081'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  contentSecurityPolicy: false,
 }));
 
 // Logging
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(morgan(ENV === 'production' ? 'combined' : 'dev'));
 
-// Static files
-app.use('/uploads', express.static(path.resolve('uploads')));
-app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
-app.use('/public', express.static(path.join(__dirname, '../public')));
-
-// Main API routes
+// ─── Routes ──────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api', apiRoutes);
 app.use('/api/footer', footerRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api', paystackRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api', apiRoutes); // Generic routes fallback
 
-// Health check
+// ─── Health Check & Root ─────────────────────────────
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
+    environment: ENV,
     version: process.env.npm_package_version || '1.0.0'
   });
 });
 
-// Root route
 app.get('/', (req, res) => {
-  res.send('Ladicare backend is running!');
+  res.send('🚀 Ladicare backend is running');
 });
 
-// Central error handler
+// ─── Error Handler ───────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('❌ Server Error:', err);
 
   if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ success: false, message: 'File too large. Maximum size is 10MB.' });
+    return res.status(400).json({ success: false, message: 'File too large. Max size is 10MB.' });
   }
 
   if (err.code === 'LIMIT_FILE_COUNT') {
@@ -122,38 +141,39 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: err.message || 'Internal Server Error',
+    ...(ENV === 'development' && { stack: err.stack }),
   });
 });
 
-// 404 handler
+// ─── 404 Fallback ─────────────────────────────────────
 app.use('*', (req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// Graceful shutdown
+// ─── Shutdown Handling ───────────────────────────────
 const gracefulShutdown = (signal) => {
-  console.log(`\n🔄 Received ${signal}. Starting graceful shutdown...`);
+  console.log(`\n🔌 Received ${signal}. Shutting down...`);
   process.exit(0);
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Launch server
+// ─── Start Server ─────────────────────────────────────
 const startServer = async () => {
   try {
     await initializeDatabase();
+
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-      console.log(`📊 Admin API: http://localhost:${PORT}/api/admin`);
-      console.log(`🛍️  Public API: http://localhost:${PORT}/api/products`);
+      console.log(`\n🟢 Ladicare API Server running on http://localhost:${PORT}`);
+      console.log(`🌍 Environment: ${ENV}`);
+      console.log(`✅ Health Check: http://localhost:${PORT}/health`);
+      console.log(`🛒 Products API: http://localhost:${PORT}/api/products`);
+      console.log(`🔐 Admin Panel: http://localhost:${PORT}/api/admin`);
     });
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
+  } catch (err) {
+    console.error('❌ Failed to start server:', err);
     process.exit(1);
   }
 };

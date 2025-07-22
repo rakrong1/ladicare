@@ -27,6 +27,100 @@ export const getProducts = async (req, res) => {
   }
 };
 
+// ✅ GET /api/products/slug/:slug - Get product by slug
+export const getProductBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const product = await Product.findOne({
+      where: { slug },
+      include: [
+        { model: Category, as: 'category' },
+        { model: ProductVariant, as: 'variants' },
+        { model: Review, as: 'reviews' }
+      ]
+    });
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    const tags = Array.isArray(product.tags) ? product.tags : JSON.parse(product.tags || '[]');
+    const images = Array.isArray(product.images) ? product.images : JSON.parse(product.images || '[]');
+    const videos = Array.isArray(product.videos) ? product.videos : JSON.parse(product.videos || '[]');
+
+    const reviews = product.reviews || [];
+    const avgRating = reviews.length
+      ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(2))
+      : 0;
+
+    const formattedVariants = (product.variants || []).map((v) => ({
+      id: v.id,
+      name: v.name,
+      sku: v.sku,
+      price: parseFloat(v.price),
+      quantity: parseInt(v.quantity),
+      attributes: typeof v.attributes === 'string'
+        ? JSON.parse(v.attributes)
+        : v.attributes || {}
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        price: parseFloat(product.price),
+        original_price: parseFloat(product.original_price || product.price),
+        stock_quantity: product.stock_quantity,
+        features: product.features || [],
+        reviewCount: reviews.length,
+        rating: avgRating,
+        category: product.category
+          ? {
+              id: product.category.id,
+              name: product.category.name,
+              slug: product.category.slug
+            }
+          : null,
+        tags,
+        images,
+        videos,
+        variants: formattedVariants,
+        status: product.status,
+        thumbnail: product.thumbnail,
+        createdAt: product.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching product by slug:', error);
+    handleError(res, error, 'Failed to fetch product by slug');
+  }
+};
+
+// ✅ GET /api/products/stock - Get stock levels for all products
+export const getProductStock = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      attributes: ['id', 'stock_quantity']
+    });
+
+    const stockMap = products.reduce((acc, product) => {
+      acc[product.id] = product.stock_quantity;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+       stockMap
+    });
+  } catch (error) {
+    console.error('Error fetching stock:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch stock data' });
+  }
+};
+
 // ✅ GET /api/products/id/:id - Get single product by ID
 export const getProductById = async (req, res) => {
   try {

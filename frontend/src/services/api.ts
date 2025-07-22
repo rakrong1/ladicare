@@ -1,15 +1,16 @@
-// src/services/api.ts
-
 import axios, {
   AxiosInstance,
   AxiosRequestConfig,
   AxiosResponse,
+  AxiosError,
 } from 'axios';
-import { Product } from '../types/product';
+import { Product } from '@/types/product';
 
+// Base API URL
 const API_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
 
+// Create Axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
@@ -33,7 +34,7 @@ api.interceptors.request.use(
 // Response Interceptor: Handle auth errors
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error) => {
+  (error: AxiosError) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       // Optional: redirect if not already on login
@@ -48,6 +49,12 @@ api.interceptors.response.use(
 // -----------------------------
 // ✅ API CLASS
 // -----------------------------
+interface CartResponse {
+  success: boolean;
+  items: CartItem[];
+  message?: string;
+}
+
 class ApiService {
   constructor(private axiosInstance: AxiosInstance) {}
 
@@ -125,6 +132,10 @@ class ApiService {
     return this.get<{ success: boolean; data: Product }>(`/products/${id}`);
   }
 
+  getProductBySlug(slug: string) {
+    return this.get<{ success: boolean; data: Product }>(`/products/slug/${slug}`);
+  }
+
   getProductsByCategory(categoryId: number) {
     return this.get<{ success: boolean; data: Product[] }>(`/products/category/${categoryId}`);
   }
@@ -135,6 +146,60 @@ class ApiService {
 
   getCategory(id: number) {
     return this.get<{ success: boolean; data: any }>(`/categories/${id}`);
+  }
+
+  // -----------------------------
+  // ✅ CART
+  // -----------------------------
+  getCart(customerId?: string) {
+    const params = customerId ? { customerId } : {};
+    return this.get<CartResponse>('/cart', { params });
+  }
+
+  // Remove redundant addToCart since we're using upsertCartItem
+  upsertCartItem(data: {
+    productId: string;
+    variantId?: string | null;
+    quantity?: number;
+    price?: number;
+    customerId?: string;
+  }) {
+    return this.post<CartResponse>('/cart/upsert', data);
+  }
+
+  removeFromCart(productId: string, customerId?: string, variantId?: string | null) {
+    return this.delete<CartResponse>(`/cart/remove/${productId}`, {
+      data: { customerId, variantId }
+    });
+  }
+
+  updateCartQuantity(data: {
+    productId: string;
+    variantId?: string | null;
+    quantity: number;
+    customerId?: string;
+  }) {
+    return this.put<CartResponse>('/cart/update', {
+      productId: data.productId,
+      variantId: data.variantId || null,
+      quantity: Math.max(0, Number(data.quantity) || 0),
+      customerId: data.customerId
+    });
+  }
+
+  clearCart(customerId?: string) {
+    return this.delete<CartResponse>('/cart/clear', {
+      data: { customerId }
+    });
+  }
+
+  // Remove redundant syncCart since we're handling sync in the context
+
+  // -----------------------------
+  // ✅ PRODUCT STOCK
+  // -----------------------------
+  getProductStock() {
+    return this.get<Record<number, number>>('/products/stock');
   }
 
   // -----------------------------

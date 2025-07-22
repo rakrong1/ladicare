@@ -1,7 +1,4 @@
-/* eslint-disable max-len */
-/* eslint-disable import/prefer-default-export */
-// backend/models/Cart.js
-import { CartItem, Product } from '../db/index.js'; // CartItem = Sequelize model for cart_items
+import { CartItem, Product } from '../db/index.js';
 
 export class Cart {
   constructor(sessionId, customerId = null) {
@@ -10,97 +7,156 @@ export class Cart {
     this.items = [];
   }
 
-  // Load cart items from DB into this.items
-  async loadItems() {
-    const where = this.customerId ? { customer_id: this.customerId } : { session_id: this.sessionId };
-    const items = await CartItem.findAll({
-      where,
-      include: [{ model: Product, as: 'product' }],
-      order: [['created_at', 'DESC']],
-    });
+  async upsertItem(productId, variantId = null, quantity = 1) {
+    try {
+      if (!productId) {
+        throw new Error('Product ID is required');
+      }
 
-  return items.map(item => ({
-    id: item.product_id,
-    variant_id: item.variant_id,
-    quantity: item.quantity,
-    price: item.price,
-    product: item.product, // optional for frontend
-  }));
-}
-
-  // Add or update cart item
-  async addItem(productId, variantId = null, quantity = 1) {
-    const where = this.customerId
-      ? { customer_id: this.customerId, product_id: productId, variant_id: variantId }
-      : { session_id: this.sessionId, product_id: productId, variant_id: variantId };
-
-    const existingItem = await CartItem.findOne({ where });
-
-    if (existingItem) {
-      existingItem.quantity += quantity;
-      await existingItem.save();
-      return existingItem;
-    } else {
+      // Ensure quantity is a valid number
+      const validatedQuantity = Math.max(1, Number(quantity) || 1);
+      
+      // Get product details
       const product = await Product.findByPk(productId);
-      if (!product) throw new Error('Product not found');
+      if (!product) {
+        throw new Error('Product not found');
+      }
 
-      const newItem = await CartItem.create({
-        session_id: this.sessionId,
-        customer_id: this.customerId,
+      const where = {
         product_id: productId,
         variant_id: variantId,
-        quantity,
-        price: product.price
+        ...(this.customerId ? { customer_id: this.customerId } : { session_id: this.sessionId })
+      };
+
+      // Find existing cart item
+      const existingItem = await CartItem.findOne({ where });
+
+      if (existingItem) {
+        // Update existing item
+        await existingItem.update({
+          quantity: validatedQuantity,
+          price: Number(product.price)
+        });
+      } else {
+        // Create new item
+        await CartItem.create({
+          product_id: productId,
+          variant_id: variantId,
+          quantity: validatedQuantity,
+          price: Number(product.price),
+          customer_id: this.customerId,
+          session_id: this.sessionId
+        });
+      }
+
+      // Return updated cart items
+      const updatedItems = await this.loadItems();
+      return {
+        success: true,
+        items: updatedItems
+      };
+    } catch (error) {
+      console.error('❌ Cart upsertItem error:', error);
+      throw error;
+    }
+  }
+
+  async loadItems() {
+    try {
+      const where = this.customerId
+        ? { customer_id: this.customerId }
+        : { session_id: this.sessionId };
+
+      const items = await CartItem.findAll({
+        where,
+        include: [{ model: Product, as: 'product' }],
+        order: [['created_at', 'DESC']],
       });
 
-      return newItem;
+      const mapped = items.map(item => ({
+        id: item.id,
+        productId: String(item.product_id),
+        variantId: item.variant_id ? String(item.variant_id) : null,
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price || item.product?.price || 0),
+        name: item.product?.name || 'Unknown Product',
+        image: item.product?.thumbnail || '',
+        stock_quantity: Number(item.product?.stock_quantity) || 0
+      }));
+
+      this.items = mapped;
+      return mapped;
+    } catch (error) {
+      console.error('❌ Cart loadItems error:', error);
+      return [];
     }
   }
 
-  // Remove item completely
   async removeItem(productId, variantId = null) {
-    const where = this.customerId
-      ? { customer_id: this.customerId, product_id: productId, variant_id: variantId }
-      : { session_id: this.sessionId, product_id: productId, variant_id: variantId };
+    try {
+      const where = this.customerId
+        ? { customer_id: this.customerId, product_id: productId, variant_id: variantId }
+        : { session_id: this.sessionId, product_id: productId, variant_id: variantId };
 
-    await CartItem.destroy({ where });
-  }
-
-  // Update item quantity
-  async updateQuantity(productId, variantId, quantity) {
-    if (quantity <= 0) {
-      return await this.removeItem(productId, variantId);
+      await CartItem.destroy({ where });
+      
+      const updatedItems = await this.loadItems();
+      return {
+        success: true,
+        items: updatedItems
+      };
+    } catch (error) {
+      console.error('❌ Cart removeItem error:', error);
+      throw error;
     }
-
-    const where = this.customerId
-      ? { customer_id: this.customerId, product_id: productId, variant_id: variantId }
-      : { session_id: this.sessionId, product_id: productId, variant_id: variantId };
-
-    const item = await CartItem.findOne({ where });
-    if (!item) throw new Error('Item not found');
-
-    item.quantity = quantity;
-    await item.save();
-    return item;
   }
 
-  // Clear all items
+  async updateQuantity(productId, variantId = null, quantity) {
+    try {
+      // Validate and convert quantity
+      const validatedQuantity = Math.max(0, Number(quantity) || 0);
+
+      if (validatedQuantity <= 0) {
+        return await this.removeItem(productId, variantId);
+      }
+
+      const where = this.customerId
+        ? { customer_id: this.customerId, product_id: productId, variant_id: variantId }
+        : { session_id: this.sessionId, product_id: productId, variant_id: variantId };
+
+      // Find the cart item
+      const item = await CartItem.findOne({ where });
+      if (!item) {
+        throw new Error('Cart item not found');
+      }
+
+      // Update the quantity
+      await item.update({ quantity: validatedQuantity });
+      
+      // Return updated cart items
+      return await this.loadItems();
+    } catch (error) {
+      console.error('❌ Cart updateQuantity error:', error);
+      throw error;
+    }
+  }
+
   async clear() {
-    const where = this.customerId
-      ? { customer_id: this.customerId }
-      : { session_id: this.sessionId };
+    try {
+      const where = this.customerId
+        ? { customer_id: this.customerId }
+        : { session_id: this.sessionId };
 
-    await CartItem.destroy({ where });
-    this.items = [];
-  }
-
-  // Calculate total quantity of items
-  get totalItems() {
-    return this.items.reduce((sum, item) => sum + item.quantity, 0);
-  }
-
-  // Calculate total cost
-  get subtotal() {
-    return this.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      await CartItem.destroy({ where });
+      this.items = [];
+      
+      return {
+        success: true,
+        items: []
+      };
+    } catch (error) {
+      console.error('❌ Cart clear error:', error);
+      throw error;
+    }
   }
 }

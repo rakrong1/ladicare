@@ -1,5 +1,5 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/db.js';
+import { sequelize } from '../db/index.js';
 
 const FooterContent = sequelize.define('FooterContent', {
   description: {

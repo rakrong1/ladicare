@@ -5,6 +5,10 @@ import jwt from 'jsonwebtoken';
 import { User } from '../../db/index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_FALLBACK_SECRET';
+if (!JWT_SECRET || JWT_SECRET === 'YOUR_FALLBACK_SECRET') {
+  console.error('JWT_SECRET is not set properly in environment variables');
+  process.exit(1);
+}
 
 // ✅ Middleware: Verify JWT and attach user to `req.user`
 export const requireAuth = async (req, res, next) => {
@@ -16,9 +20,12 @@ export const requireAuth = async (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
 
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findByPk(decoded.id);
+    if (!decoded?.id) return res.status(401).json({ message: 'Unauthorized: Invalid payload' });
+
 
     if (!user) {
       return res.status(401).json({ message: 'Unauthorized: User not found' });
@@ -68,11 +75,18 @@ export const requireRoles = (...roles) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized: No user found' });
     }
-    if (!roles.includes(req.user.role)) {
+
+    const { role } = req.user;
+
+    // Allow superAdmin to bypass all role checks
+    if (role === 'superAdmin') return next();
+
+    if (!roles.includes(role)) {
       return res.status(403).json({
         message: `Forbidden: Requires one of these roles: ${roles.join(', ')}`,
       });
     }
+
     next();
   };
 };

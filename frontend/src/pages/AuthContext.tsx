@@ -6,14 +6,14 @@ import React, {
   ReactNode,
 } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import AuthModal from '@/components/auth/AuthModal';
-import { useNavigate } from 'react-router-dom';
 
 export type Role = 'superAdmin' | 'admin' | 'customer';
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   role: Role;
@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsAuthenticated(true);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } catch (err) {
-      console.error('Failed to decode token:', err);
+      console.error('❌ Failed to decode token:', err);
       logout();
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = (token: string) => {
     if (!token || isTokenExpired(token)) {
-      console.error('Invalid or expired token on login');
+      console.error('❌ Invalid or expired token on login');
       return;
     }
 
@@ -89,14 +89,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setShowModal(false);
 
-      // Navigate to admin panel after login
-      if (user?.role === 'customer' ){
-      navigate('/');
-    } else if (user?.role === 'admin' || user?.role === 'superAdmin') {
-      navigate('/admin');
-    }
+      // ✅ Role-based navigation
+      if (decoded.role === 'customer') {
+        navigate('/');
+      } else {
+        navigate('/admin');
+      }
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('❌ Login failed:', err);
     }
   };
 
@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
           await api.post('/auth/logout');
         } catch (err) {
-          console.warn('Logout request failed but continuing cleanup:', err);
+          console.warn('⚠️ Logout request failed but proceeding:', err);
         }
       }
     } finally {

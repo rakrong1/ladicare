@@ -9,6 +9,14 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '::',         // Accept connections from all interfaces (including LAN/IPv6)
       port: 8081,         // Custom dev server port
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path
+        }
+      }
     },
     plugins: [
       react(),

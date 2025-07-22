@@ -15,4 +15,8 @@ router.post('/register', register);
 // @access  Public
 router.post('/login', login);
 
+router.post('/logout', (req, res) => {
+  res.status(200).json({ success: true, message: 'Logged out successfully.' });
+});
+
 export default router;

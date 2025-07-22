@@ -1,5 +1,6 @@
 // backend/src/routes/api.js
 import { Router } from 'express';
+import { router as cartRoutes } from '../routes/cartRoutes.js';
 
 const router = Router();
 
@@ -34,5 +35,8 @@ router.get('/', (req, res) => {
     endpoints: ['/health', '/test']
   });
 });
+
+// Mounting the cart routes
+router.use('/cart', cartRoutes);
 
 export default router;

@@ -1,6 +1,6 @@
 // models/contactmessage.js
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/db.js'; // adjust path if needed
+import { sequelize } from '../db/index.js'; // adjust path if needed
 
 const ContactMessage = sequelize.define('ContactMessage', {
   name: {

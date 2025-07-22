@@ -8,16 +8,31 @@ import AuthModal from '@/components/auth/AuthModal';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
+type Product = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number | string;
+  original_price?: number | string;
+  rating?: number;
+  reviewCount?: number;
+  stock_quantity?: number;
+  thumbnail?: string;
+  images?: string[];
+  is_featured?: boolean;
+  // add other properties as needed
+};
+
 const Home = () => {
   const { visibleProducts, categories, loading } = useProducts();
   const { isAuthenticated } = useAuth();
-  const { state: cartState, addItem } = useCart();
+  const { state: cartState, upsertItem } = useCart();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const featuredProducts = visibleProducts.filter(p => p.is_featured);
+  const featuredProducts = (visibleProducts as Product[]).filter(p => p.is_featured);
 
   const getProductQuantityInCart = (productId: string) => {
-    const item = cartState.items.find(i => i.id === productId);
+    const item = cartState.items.find(i => i.productId === productId);
     return item ? item.quantity : 0;
   };
 
@@ -40,12 +55,12 @@ const Home = () => {
     if (product.stock_quantity <= currentQty) return;
 
     handleAuthCheck(() => {
-      addItem({
-        id: product.id,
-        name: product.name,
-        price: Number(product.price),
-        image: getImageUrl(product),
-      });
+      upsertItem(
+        product.id,         // productId
+        undefined,          // variantId (if you have variants, pass the correct one)
+        1,                  // quantity to add (default 1)
+        Number(product.price) // price
+      );
     });
   };
 

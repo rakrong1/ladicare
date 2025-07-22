@@ -1,218 +1,278 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import React, {
+  createContext,
+  useReducer,
+  useContext,
+  useEffect,
+  ReactNode,
+} from 'react';
 import api from '@/services/api';
-import { v4 as uuidv4 } from 'uuid';
+import { getSessionId } from '@/lib/session';
 import { useAuth } from './AuthContext';
 
+// Clean up redundant interfaces and consolidate types
 interface CartItem {
-  id: string;
-  name: string;
-  price: number;
+  id: number;
+  productId: string;
+  variantId?: string | null;
   quantity: number;
-  image: string;
+  price: number;
+  name?: string;
+  image?: string;
   stock_quantity?: number;
 }
 
 interface CartState {
   items: CartItem[];
-  total: number;
   itemCount: number;
+  total: number;
 }
 
-type CartAction =
-  | { type: 'ADD_ITEM'; payload: Omit<CartItem, 'quantity'> }
-  | { type: 'REMOVE_ITEM'; payload: string }
-  | { type: 'UPDATE_QUANTITY'; payload: { id: string; quantity: number } }
-  | { type: 'CLEAR_CART' }
-  | { type: 'LOAD_CART'; payload: CartItem[] };
+type Action =
+  | { type: 'SET_CART'; payload: CartItem[] }
+  | { type: 'CLEAR_CART' };
 
-const CartContext = createContext<{
+interface CartContextType {
   state: CartState;
-  dispatch: React.Dispatch<CartAction>;
-  addItem: (item: Omit<CartItem, 'quantity'>) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  clearCart: () => void;
-} | null>(null);
+  upsertItem: (
+    productId: string,
+    variantId?: string | null,
+    quantity?: number,
+    price?: number
+  ) => Promise<void>;
+  removeItem: (productId: string, variantId?: string) => Promise<void>;
+  updateQuantity: (
+    productId: string,
+    variantId?: string | null,
+    quantity: number
+  ) => Promise<void>;
+  clearCart: () => Promise<void>;
+}
 
-// 🔁 Reducer logic
-const cartReducer = (state: CartState, action: CartAction): CartState => {
+const initialState: CartState = {
+  items: [],
+  itemCount: 0,
+  total: 0,
+};
+
+const CartContext = createContext<CartContextType | null>(null);
+
+// --- Reducer ---
+function cartReducer(state: CartState, action: Action): CartState {
   switch (action.type) {
-    case 'ADD_ITEM': {
-      const existingItem = state.items.find(item => item.id === action.payload.id);
-      const maxStock = action.payload.stock_quantity ?? 99;
+    case 'SET_CART': {
+      const items = Array.isArray(action.payload) ? action.payload : [];
 
-      if (existingItem) {
-        const newQuantity = Math.min(existingItem.quantity + 1, maxStock);
-        const updatedItems = state.items.map(item =>
-          item.id === action.payload.id
-            ? { ...item, quantity: newQuantity, stock_quantity: maxStock }
-            : item
-        );
-        return {
-          ...state,
-          items: updatedItems,
-          total: updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-          itemCount: updatedItems.reduce((count, item) => count + item.quantity, 0),
-        };
-      } else {
-        const newItem: CartItem = {
-          ...action.payload,
-          quantity: 1,
-          stock_quantity: action.payload.stock_quantity ?? 99,
-        };
-        const newItems = [...state.items, newItem];
-        return {
-          ...state,
-          items: newItems,
-          total: newItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-          itemCount: newItems.reduce((count, item) => count + item.quantity, 0),
-        };
-      }
+      const itemCount = items.reduce(
+        (acc, item) => acc + Math.max(1, Number(item.quantity) || 0),
+        0
+      );
+      const total = items.reduce(
+        (acc, item) => acc + (Number(item.price) || 0) * Math.max(1, Number(item.quantity) || 0),
+        0
+      );
+
+      return { ...state, items, itemCount, total };
     }
-
-    case 'UPDATE_QUANTITY': {
-      const updatedItems = state.items.map(item => {
-        if (item.id === action.payload.id) {
-          const maxStock = item.stock_quantity ?? 99;
-          const qty = Math.max(1, Math.min(action.payload.quantity, maxStock));
-          return { ...item, quantity: qty };
-        }
-        return item;
-      });
-      return {
-        ...state,
-        items: updatedItems,
-        total: updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        itemCount: updatedItems.reduce((count, item) => count + item.quantity, 0),
-      };
-    }
-
-    case 'REMOVE_ITEM': {
-      const newItems = state.items.filter(item => item.id !== action.payload);
-      return {
-        ...state,
-        items: newItems,
-        total: newItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        itemCount: newItems.reduce((count, item) => count + item.quantity, 0),
-      };
-    }
-
     case 'CLEAR_CART':
-      return {
-        items: [],
-        total: 0,
-        itemCount: 0,
-      };
-
-    case 'LOAD_CART': {
-      const cleaned = action.payload.map(item => ({
-        ...item,
-        quantity: Math.min(item.quantity, item.stock_quantity ?? 99),
-      }));
-      return {
-        items: cleaned,
-        total: cleaned.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        itemCount: cleaned.reduce((count, item) => count + item.quantity, 0),
-      };
-    }
-
+      return initialState;
     default:
       return state;
   }
-};
+}
 
-// 🛒 Provider
-export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(cartReducer, {
-    items: [],
-    total: 0,
-    itemCount: 0,
-  });
-
+// --- Provider ---
+export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const lastSyncedRef = useRef<string | null>(null);
+  const [state, dispatch] = useReducer(cartReducer, initialState);
+  const storageKey = 'ladicare-cart';
 
-  // 💾 Load cart from storage on mount
+  // Load cart data
   useEffect(() => {
-    const storedCart = localStorage.getItem('ladicare-cart');
-    if (storedCart) {
+    const fetchCart = async () => {
       try {
-        const parsed = JSON.parse(storedCart);
-        dispatch({ type: 'LOAD_CART', payload: parsed });
+        if (user) {
+          const response = await api.get('/cart', {
+            params: { customerId: user.id },
+          });
+          
+          const cartItems = response.data?.items || [];
+          dispatch({ type: 'SET_CART', payload: cartItems });
+        } else {
+          const local: CartItem[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          dispatch({ type: 'SET_CART', payload: local });
+        }
       } catch (err) {
-        console.error('❌ Failed to load cart from localStorage:', err);
+        console.error('❌ Failed to load cart:', err);
+        dispatch({ type: 'SET_CART', payload: [] });
+      }
+    };
+
+    fetchCart();
+  }, [user]);
+
+  // Sync localStorage for guest users
+  useEffect(() => {
+    if (!user) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(state.items));
+      } catch (e) {
+        console.error('❌ Failed to store cart:', e);
       }
     }
+  }, [state.items, user]);
 
-    // Ensure session ID exists
-    if (!localStorage.getItem('ladicare-session')) {
-      localStorage.setItem('ladicare-session', uuidv4());
-    }
-  }, []);
-
-  // 🔁 Sync cart to backend (debounced)
-  const syncCartToBackend = useCallback(async () => {
+  const upsertItem: CartContextType['upsertItem'] = async (
+    productId: string,
+    variantId: string | null | undefined,
+    quantity: number,
+    price: number
+  ) => {
     try {
-      const sessionId = localStorage.getItem('ladicare-session');
-      if (!sessionId) return;
+      const qty = Math.max(1, Number(quantity));
 
-      const serialized = JSON.stringify(state.items);
-      if (serialized === lastSyncedRef.current) return;
+      if (user) {
+        const response = await api.upsertCartItem({
+          productId,
+          variantId,
+          quantity: qty,
+          price: Number(price),
+          customerId: user.id,
+        });
 
-      lastSyncedRef.current = serialized;
+        if (!response.success) {
+          throw new Error(response.message || 'Failed to update cart');
+        }
 
-      await api.post('/cart/sync', {
-        sessionId,
-        items: state.items.map(item => ({
-          id: item.id,
-          variant_id: null,
-          quantity: item.quantity,
-        })),
-      });
+        // Update local state with the server response
+        dispatch({ type: 'SET_CART', payload: response.items });
+      } else {
+        const local: CartItem[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const existing = local.find(
+          i => i.productId === productId && i.variantId === variantId
+        );
+
+        if (existing) {
+          existing.quantity += qty;
+          existing.price = Number(price);
+        } else {
+          local.push({
+            id: Date.now(),
+            productId,
+            variantId,
+            quantity: qty,
+            price: Number(price)
+          });
+        }
+
+        localStorage.setItem(storageKey, JSON.stringify(local));
+        dispatch({ type: 'SET_CART', payload: local });
+      }
     } catch (err) {
-      console.error('🛒 Failed to sync cart with backend:', err);
+      console.error('❌ Upsert failed:', err);
+      throw err;
     }
-  }, [state.items]);
-
-  // ⏱ Debounce localStorage and backend sync
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      localStorage.setItem('ladicare-cart', JSON.stringify(state.items));
-      syncCartToBackend();
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [state.items, syncCartToBackend]);
-
-  // Expose functions
-  const addItem = (item: Omit<CartItem, 'quantity'>) => {
-    dispatch({ type: 'ADD_ITEM', payload: item });
   };
 
-  const removeItem = (id: string) => {
-    dispatch({ type: 'REMOVE_ITEM', payload: id });
+  const removeItem: CartContextType['removeItem'] = async (
+    productId: string,
+    variantId?: string
+  ) => {
+    if (user) {
+      try {
+        const response = await api.removeFromCart(productId, user.id, variantId);
+        if (response.success) {
+          dispatch({ type: 'SET_CART', payload: response.items });
+        }
+      } catch (err) {
+        console.error('❌ Remove failed:', err);
+        // Optionally show error message to user
+      }
+    } else {
+      const local: CartItem[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const filtered = local.filter(
+        i => i.productId !== productId || i.variantId !== variantId
+      );
+      localStorage.setItem(storageKey, JSON.stringify(filtered));
+      dispatch({ type: 'SET_CART', payload: filtered });
+    }
   };
 
-  const updateQuantity = (id: string, quantity: number) => {
-    dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
+  const updateQuantity: CartContextType['updateQuantity'] = async (
+    productId: string,
+    variantId: string | null | undefined,
+    quantity: number
+  ) => {
+    try {
+      const qty = Math.max(0, Number(quantity));
+
+      if (qty === 0) {
+        return await removeItem(productId, variantId);
+      }
+
+      if (user) {
+        const response = await api.updateCartQuantity({
+          productId: String(productId),
+          variantId: variantId || null,
+          quantity: qty,
+          customerId: user.id
+        });
+        
+        if (response.success) {
+          dispatch({ type: 'SET_CART', payload: response.items });
+        } else {
+          throw new Error(response.message || 'Failed to update quantity');
+        }
+      } else {
+        const local: CartItem[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const updated = local.map(item =>
+          item.productId === productId && item.variantId === variantId
+            ? { ...item, quantity: qty }
+            : item
+        );
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        dispatch({ type: 'SET_CART', payload: updated });
+      }
+    } catch (err) {
+      console.error('❌ Update quantity failed:', err);
+      // Optionally show error message to user
+    }
   };
 
-  const clearCart = () => {
+  // Clear cart
+  const clearCart: CartContextType['clearCart'] = async () => {
     dispatch({ type: 'CLEAR_CART' });
+
+    if (user) {
+      try {
+        await api.post('/cart/clear', { customerId: user.id });
+      } catch (err) {
+        console.error('❌ Clear failed:', err);
+      }
+    } else {
+      localStorage.removeItem(storageKey);
+    }
   };
 
   return (
-    <CartContext.Provider value={{ state, dispatch, addItem, removeItem, updateQuantity, clearCart }}>
+    <CartContext.Provider
+      value={{
+        state,
+        upsertItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );
 };
 
-// 🧠 Custom hook
-export const useCart = () => {
+// --- Hook ---
+export const useCart = (): CartContextType => {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error('useCart must be used within CartProvider');
   }
   return context;
 };

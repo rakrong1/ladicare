@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
+import { jwtDecode } from 'jwt-decode';
 import { useAuth } from '@/pages/AuthContext';
 
 interface AuthModalProps {
@@ -13,8 +14,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -52,12 +53,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         : await api.register(payload);
 
       const { token } = response;
+      if (!token) throw new Error('No token returned');
 
-      if (!token) throw new Error('Invalid response format');
+      const decoded: any = jwtDecode(token);
+      if (!decoded?.id || !decoded?.role) throw new Error('Invalid token payload');
 
-      login(token);      // ✅ update AuthContext
-      onClose();         // ✅ close modal
-      navigate('/admin'); // ✅ redirect
+      login(token);      // ✅ Save to context and localStorage
+      onClose();         // ✅ Close modal
+
+      // ✅ Role-based navigation
+      if (decoded.role === 'customer') {
+        navigate('/');
+      } else if (decoded.role === 'admin' || decoded.role === 'superAdmin') {
+        navigate('/admin');
+      }
 
     } catch (err: any) {
       let message = 'Something went wrong. Please try again.';

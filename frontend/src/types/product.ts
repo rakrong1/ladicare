@@ -8,12 +8,13 @@ export interface Product {
   original_price?: number;
   slug: string;
   images: string[];
+  thumbnail: string;          // ✅ Added this
   videos?: string[];
-  stock_quantity?: number; // for in-stock display
-  rating?: number;         // used in Home.tsx & ProductDetails
-  reviewCount?: number;    // used in ProductDetails
-  tags?: string[];         // used in ProductDetails & filter
-  features?: string[];     // used in ProductDetails
+  stock_quantity?: number;
+  rating?: number;
+  reviewCount?: number;
+  tags?: string[];
+  features?: string[];
   created_at: string;
 
   category: {
